@@ -88,8 +88,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid authentication")
 
-async def get_user_by_role(required_role: UserRole):
-    def role_checker(current_user: User = Depends(get_current_user)):
+def get_user_by_role(required_role: UserRole):
+    async def role_checker(current_user: User = Depends(get_current_user)):
         if current_user.role != required_role:
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return current_user
