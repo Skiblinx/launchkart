@@ -3,6 +3,7 @@ import json
 import unittest
 import os
 import logging
+import time
 from dotenv import load_dotenv
 
 # Configure logging
@@ -27,18 +28,26 @@ class LaunchKartBackendTest(unittest.TestCase):
     def test_01_login_redirect(self):
         """Test the login redirect endpoint"""
         logger.info("Testing login redirect endpoint...")
-        response = requests.get(f"{API_URL}/auth/login")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("auth_url", data)
-        logger.info("Login redirect endpoint test passed")
+        try:
+            response = requests.get(f"{API_URL}/auth/login", timeout=10)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIn("auth_url", data)
+            logger.info("Login redirect endpoint test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_02_profile_without_session_id(self):
         """Test profile endpoint without session ID"""
         logger.info("Testing profile endpoint without session ID...")
-        response = requests.post(f"{API_URL}/auth/profile")
-        self.assertEqual(response.status_code, 400)
-        logger.info("Profile endpoint without session ID test passed")
+        try:
+            response = requests.post(f"{API_URL}/auth/profile", timeout=10)
+            self.assertEqual(response.status_code, 400)
+            logger.info("Profile endpoint without session ID test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_03_profile_with_session_id(self):
         """Test profile endpoint with session ID (mocked)"""
@@ -48,72 +57,106 @@ class LaunchKartBackendTest(unittest.TestCase):
         # In a real test, we would need to get a valid session ID from Emergent Auth
         # For testing purposes, we'll just check the error response
         
-        response = requests.post(
-            f"{API_URL}/auth/profile",
-            headers={"X-Session-ID": self.session_id}
-        )
-        
-        # Since we're using a mock session ID, we expect an error
-        # In a real environment with valid credentials, this would return 200
-        self.assertIn(response.status_code, [401, 500])
-        
-        logger.info(f"Profile endpoint with session ID test completed with status {response.status_code}")
-        logger.info("Note: This test is expected to fail with a mock session ID")
+        try:
+            response = requests.post(
+                f"{API_URL}/auth/profile",
+                headers={"X-Session-ID": self.session_id},
+                timeout=10
+            )
+            
+            # Since we're using a mock session ID, we expect an error
+            # In a real environment with valid credentials, this would return 200
+            self.assertIn(response.status_code, [401, 500])
+            
+            logger.info(f"Profile endpoint with session ID test completed with status {response.status_code}")
+            logger.info("Note: This test is expected to fail with a mock session ID")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_04_me_without_auth(self):
         """Test current user endpoint without authentication"""
         logger.info("Testing current user endpoint without authentication...")
-        response = requests.get(f"{API_URL}/auth/me")
-        self.assertEqual(response.status_code, 401)
-        logger.info("Current user endpoint without authentication test passed")
+        try:
+            response = requests.get(f"{API_URL}/auth/me", timeout=10)
+            self.assertEqual(response.status_code, 401)
+            logger.info("Current user endpoint without authentication test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_05_me_with_invalid_auth(self):
         """Test current user endpoint with invalid authentication"""
         logger.info("Testing current user endpoint with invalid authentication...")
-        response = requests.get(
-            f"{API_URL}/auth/me",
-            headers={"Authorization": "Bearer invalid_token"}
-        )
-        self.assertEqual(response.status_code, 401)
-        logger.info("Current user endpoint with invalid authentication test passed")
+        try:
+            response = requests.get(
+                f"{API_URL}/auth/me",
+                headers={"Authorization": "Bearer invalid_token"},
+                timeout=10
+            )
+            self.assertEqual(response.status_code, 401)
+            logger.info("Current user endpoint with invalid authentication test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_06_role_update_without_auth(self):
         """Test role update endpoint without authentication"""
         logger.info("Testing role update endpoint without authentication...")
-        response = requests.put(f"{API_URL}/auth/role?role=founder")
-        self.assertEqual(response.status_code, 401)
-        logger.info("Role update endpoint without authentication test passed")
+        try:
+            response = requests.put(f"{API_URL}/auth/role?role=founder", timeout=10)
+            self.assertEqual(response.status_code, 401)
+            logger.info("Role update endpoint without authentication test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_07_dashboard_without_auth(self):
         """Test dashboard endpoint without authentication"""
         logger.info("Testing dashboard endpoint without authentication...")
-        response = requests.get(f"{API_URL}/dashboard")
-        self.assertEqual(response.status_code, 401)
-        logger.info("Dashboard endpoint without authentication test passed")
+        try:
+            response = requests.get(f"{API_URL}/dashboard", timeout=10)
+            self.assertEqual(response.status_code, 401)
+            logger.info("Dashboard endpoint without authentication test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_08_business_essentials_without_auth(self):
         """Test business essentials endpoint without authentication"""
         logger.info("Testing business essentials endpoint without authentication...")
-        response = requests.get(f"{API_URL}/business-essentials")
-        self.assertEqual(response.status_code, 401)
-        logger.info("Business essentials endpoint without authentication test passed")
+        try:
+            response = requests.get(f"{API_URL}/business-essentials", timeout=10)
+            self.assertEqual(response.status_code, 401)
+            logger.info("Business essentials endpoint without authentication test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_09_generate_business_essentials_without_auth(self):
         """Test generate business essentials endpoint without authentication"""
         logger.info("Testing generate business essentials endpoint without authentication...")
-        response = requests.post(f"{API_URL}/business-essentials/generate")
-        self.assertEqual(response.status_code, 401)
-        logger.info("Generate business essentials endpoint without authentication test passed")
+        try:
+            response = requests.post(f"{API_URL}/business-essentials/generate", timeout=10)
+            self.assertEqual(response.status_code, 401)
+            logger.info("Generate business essentials endpoint without authentication test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_10_services_list(self):
         """Test services list endpoint (public)"""
         logger.info("Testing services list endpoint...")
-        response = requests.get(f"{API_URL}/services")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
-        self.assertTrue(len(data) > 0)
-        logger.info("Services list endpoint test passed")
+        try:
+            response = requests.get(f"{API_URL}/services", timeout=10)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
+            self.assertTrue(len(data) > 0)
+            logger.info("Services list endpoint test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_11_create_service_request_without_auth(self):
         """Test create service request endpoint without authentication"""
@@ -124,23 +167,35 @@ class LaunchKartBackendTest(unittest.TestCase):
             "description": "Need a professional website",
             "budget": 1500
         }
-        response = requests.post(f"{API_URL}/services/request", params=service_data)
-        self.assertEqual(response.status_code, 401)
-        logger.info("Create service request endpoint without authentication test passed")
+        try:
+            response = requests.post(f"{API_URL}/services/request", params=service_data, timeout=10)
+            self.assertEqual(response.status_code, 401)
+            logger.info("Create service request endpoint without authentication test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_12_admin_users_without_auth(self):
         """Test admin users endpoint without authentication"""
         logger.info("Testing admin users endpoint without authentication...")
-        response = requests.get(f"{API_URL}/admin/users")
-        self.assertEqual(response.status_code, 401)
-        logger.info("Admin users endpoint without authentication test passed")
+        try:
+            response = requests.get(f"{API_URL}/admin/users", timeout=10)
+            self.assertEqual(response.status_code, 401)
+            logger.info("Admin users endpoint without authentication test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_13_admin_service_requests_without_auth(self):
         """Test admin service requests endpoint without authentication"""
         logger.info("Testing admin service requests endpoint without authentication...")
-        response = requests.get(f"{API_URL}/admin/service-requests")
-        self.assertEqual(response.status_code, 401)
-        logger.info("Admin service requests endpoint without authentication test passed")
+        try:
+            response = requests.get(f"{API_URL}/admin/service-requests", timeout=10)
+            self.assertEqual(response.status_code, 401)
+            logger.info("Admin service requests endpoint without authentication test passed")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            self.fail(f"Request failed: {e}")
     
     def test_14_authenticated_flow_simulation(self):
         """
@@ -190,4 +245,7 @@ class LaunchKartBackendTest(unittest.TestCase):
         logger.info("Authenticated flow simulation completed")
 
 if __name__ == "__main__":
+    # Wait for backend to be fully started
+    logger.info("Waiting for backend to be fully started...")
+    time.sleep(5)
     unittest.main(verbosity=2)
