@@ -10,13 +10,8 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Load environment variables from frontend .env file to get the backend URL
-load_dotenv('/app/frontend/.env')
-BACKEND_URL = os.getenv('REACT_APP_BACKEND_URL')
-if not BACKEND_URL:
-    raise ValueError("REACT_APP_BACKEND_URL not found in environment variables")
-
-API_URL = f"{BACKEND_URL}/api"
+# Use local backend URL for testing
+API_URL = "http://localhost:8001/api"
 logger.info(f"Using API URL: {API_URL}")
 
 class LaunchKartBackendTest(unittest.TestCase):
