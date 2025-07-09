@@ -1,73 +1,42 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
+import KYCFlow from './components/KYCFlow';
+import { UserProvider, useUser } from './context/UserContext';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 const API = `${BACKEND_URL}/api`;
 
-// Auth Context
-const AuthContext = createContext();
-
-const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
-
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchUserProfile();
-    } else {
-      setLoading(false);
-    }
-  }, [token]);
-
-  const fetchUserProfile = async () => {
-    try {
-      const response = await axios.get(`${API}/auth/me`);
-      setUser(response.data);
-    } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-      logout();
-    } finally {
-      setLoading(false);
-    }
+// Utility for authenticated requests (always include token from sessionStorage)
+export const apiRequest = (method, url, data, config = {}) => {
+  const token = sessionStorage.getItem('token');
+  const headers = {
+    ...(config.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
-
-  const login = (newToken, userData) => {
-    setToken(newToken);
-    setUser(userData);
-    localStorage.setItem('token', newToken);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout, loading, token }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return axios({
+    method,
+    url: `${API}${url.startsWith('/') ? url : '/' + url}`,
+    data,
+    ...config,
+    headers,
+  });
 };
 
 // Components
 const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, setUser } = useUser();
   const navigate = useNavigate();
+
+  const logout = () => {
+    setUser(null);
+    sessionStorage.removeItem('user');
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
+    navigate('/login');
+  };
 
   return (
     <header className="bg-white shadow-lg border-b sticky top-0 z-50">
@@ -94,12 +63,12 @@ const Header = () => {
               </nav>
             )}
           </div>
-          
+
           {user ? (
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <img 
-                  src={user.picture || 'https://via.placeholder.com/40'} 
+                <img
+                  src={user.picture || 'https://via.placeholder.com/40'}
                   alt={user.fullName || user.name}
                   className="w-8 h-8 rounded-full"
                 />
@@ -136,9 +105,8 @@ const LoadingSpinner = () => (
 );
 
 const Toast = ({ message, type, onClose }) => (
-  <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-    type === 'success' ? 'bg-green-500' : 'bg-red-500'
-  } text-white`}>
+  <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${type === 'success' ? 'bg-green-500' : 'bg-red-500'
+    } text-white`}>
     <div className="flex items-center justify-between">
       <span>{message}</span>
       <button onClick={onClose} className="ml-4 text-white hover:text-gray-200">×</button>
@@ -161,30 +129,30 @@ const SignupPage = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
-  const { login } = useAuth();
+  const { setUser } = useUser();
   const navigate = useNavigate();
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
-    
+
     if (!formData.phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required';
     else if (formData.country === 'India' && !formData.phoneNumber.startsWith('+91')) {
       newErrors.phoneNumber = 'Phone number must start with +91 for India';
     } else if (formData.country === 'UAE' && !formData.phoneNumber.startsWith('+971')) {
       newErrors.phoneNumber = 'Phone number must start with +971 for UAE';
     }
-    
+
     if (!formData.password) newErrors.password = 'Password is required';
     else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
-    
+
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -192,17 +160,19 @@ const SignupPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     setLoading(true);
     try {
-      const response = await axios.post(`${API}/auth/signup`, formData);
-      login(response.data.token, response.data.user);
+      const response = await apiRequest('post', '/auth/signup', formData);
+      setUser(response.data.user);
+      sessionStorage.setItem('user', JSON.stringify(response.data.user));
+      sessionStorage.setItem('token', response.data.token); // store as plain string
       setToast({ message: 'Account created successfully!', type: 'success' });
       setTimeout(() => navigate('/kyc'), 1500);
     } catch (error) {
-      setToast({ 
-        message: error.response?.data?.detail || 'Signup failed', 
-        type: 'error' 
+      setToast({
+        message: error.response?.data?.detail || 'Signup failed',
+        type: 'error'
       });
     } finally {
       setLoading(false);
@@ -218,13 +188,13 @@ const SignupPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
       {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
+        <Toast
+          message={toast.message}
+          type={toast.type}
           onClose={() => setToast(null)}
         />
       )}
-      
+
       <div className="container mx-auto px-4">
         <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
@@ -242,9 +212,8 @@ const SignupPage = () => {
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.fullName ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.fullName ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Enter your full name"
               />
               {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
@@ -259,9 +228,8 @@ const SignupPage = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.email ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.email ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Enter your email"
               />
               {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
@@ -292,9 +260,8 @@ const SignupPage = () => {
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   placeholder={formData.country === 'India' ? '+91 XXXXXXXXXX' : '+971 XXXXXXXXX'}
                 />
                 {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
@@ -348,9 +315,8 @@ const SignupPage = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.password ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.password ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Minimum 8 characters"
               />
               {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
@@ -365,9 +331,8 @@ const SignupPage = () => {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Confirm your password"
               />
               {errors.confirmPassword && <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>}
@@ -421,10 +386,10 @@ const SignupPage = () => {
             >
               <div className="flex items-center justify-center space-x-2">
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
                 <span>Continue with Google</span>
               </div>
@@ -437,9 +402,20 @@ const SignupPage = () => {
 
   async function handleGoogleLogin() {
     try {
-      const response = await axios.get(`${API}/auth/login-redirect`);
-      window.location.href = response.data.auth_url;
+      const response = await apiRequest('get', '/auth/login-redirect');
+
+      // For the mock implementation, we'll directly call the callback endpoint
+      const callbackResponse = await apiRequest('get', response.data.auth_url);
+
+      if (callbackResponse.data.token) {
+        setUser(callbackResponse.data.user);
+        sessionStorage.setItem('user', JSON.stringify(callbackResponse.data.user));
+        sessionStorage.setItem('token', callbackResponse.data.token); // store as plain string
+        setToast({ message: 'Google login successful!', type: 'success' });
+        setTimeout(() => navigate('/dashboard'), 1500);
+      }
     } catch (error) {
+      console.error('Google login error:', error);
       setToast({ message: 'Google login failed', type: 'error' });
     }
   }
@@ -454,17 +430,17 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { login } = useAuth();
+  const { setUser } = useUser();
   const navigate = useNavigate();
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
-    
+
     if (!formData.password) newErrors.password = 'Password is required';
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -472,17 +448,19 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     setLoading(true);
     try {
-      const response = await axios.post(`${API}/auth/login`, formData);
-      login(response.data.token, response.data.user);
+      const response = await apiRequest('post', '/auth/login', formData);
+      setUser(response.data.user);
+      sessionStorage.setItem('user', JSON.stringify(response.data.user));
+      sessionStorage.setItem('token', response.data.token); // store as plain string
       setToast({ message: 'Login successful!', type: 'success' });
       setTimeout(() => navigate('/dashboard'), 1500);
     } catch (error) {
-      setToast({ 
-        message: error.response?.data?.detail || 'Login failed', 
-        type: 'error' 
+      setToast({
+        message: error.response?.data?.detail || 'Login failed',
+        type: 'error'
       });
     } finally {
       setLoading(false);
@@ -501,7 +479,7 @@ const LoginPage = () => {
       setToast({ message: 'Please enter your email first', type: 'error' });
       return;
     }
-    
+
     // Placeholder for forgot password functionality
     setToast({ message: 'Password reset link sent to your email (demo)', type: 'success' });
     setShowForgotPassword(false);
@@ -510,13 +488,13 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
       {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
+        <Toast
+          message={toast.message}
+          type={toast.type}
           onClose={() => setToast(null)}
         />
       )}
-      
+
       <div className="container mx-auto px-4">
         <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
@@ -534,9 +512,8 @@ const LoginPage = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.email ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.email ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Enter your email"
               />
               {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
@@ -551,9 +528,8 @@ const LoginPage = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.password ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.password ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Enter your password"
               />
               {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
@@ -607,10 +583,10 @@ const LoginPage = () => {
             >
               <div className="flex items-center justify-center space-x-2">
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
                 <span>Continue with Google</span>
               </div>
@@ -660,9 +636,20 @@ const LoginPage = () => {
 
   async function handleGoogleLogin() {
     try {
-      const response = await axios.get(`${API}/auth/login-redirect`);
-      window.location.href = response.data.auth_url;
+      const response = await apiRequest('get', '/auth/login-redirect');
+
+      // For the mock implementation, we'll directly call the callback endpoint
+      const callbackResponse = await apiRequest('get', response.data.auth_url);
+
+      if (callbackResponse.data.token) {
+        setUser(callbackResponse.data.user);
+        sessionStorage.setItem('user', JSON.stringify(callbackResponse.data.user));
+        sessionStorage.setItem('token', callbackResponse.data.token); // store as plain string
+        setToast({ message: 'Google login successful!', type: 'success' });
+        setTimeout(() => navigate('/dashboard'), 1500);
+      }
     } catch (error) {
+      console.error('Google login error:', error);
       setToast({ message: 'Google login failed', type: 'error' });
     }
   }
@@ -688,7 +675,7 @@ const LandingPage = () => {
               <h1 className="text-5xl font-bold text-gray-900">LaunchKart</h1>
             </div>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Empowering early-stage entrepreneurs in India & UAE with business essentials, 
+              Empowering early-stage entrepreneurs in India & UAE with business essentials,
               expert mentorship, and investment opportunities. Your startup journey starts here.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -710,7 +697,7 @@ const LandingPage = () => {
           {/* Features Grid */}
           <div className="grid md:grid-cols-3 gap-8 mb-20">
             <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-              <img 
+              <img
                 src="https://images.unsplash.com/photo-1513530534585-c7b1394c6d51"
                 alt="Business Essentials"
                 className="w-full h-48 object-cover rounded-lg mb-6"
@@ -720,9 +707,9 @@ const LandingPage = () => {
                 Get your logo, landing page, social media creatives, and product mockups instantly after signup.
               </p>
             </div>
-            
+
             <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-              <img 
+              <img
                 src="https://images.unsplash.com/photo-1573496130103-a442a3754d0e"
                 alt="Mentorship"
                 className="w-full h-48 object-cover rounded-lg mb-6"
@@ -732,9 +719,9 @@ const LandingPage = () => {
                 Connect with experienced mentors who can guide you through your entrepreneurial journey.
               </p>
             </div>
-            
+
             <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-              <img 
+              <img
                 src="https://images.unsplash.com/photo-1588856122867-363b0aa7f598"
                 alt="Investment"
                 className="w-full h-48 object-cover rounded-lg mb-6"
@@ -789,7 +776,7 @@ const LandingPage = () => {
 };
 
 const ProfilePage = () => {
-  const { login } = useAuth();
+  const { setUser } = useUser();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -797,10 +784,11 @@ const ProfilePage = () => {
       const sessionId = window.location.hash.split('session_id=')[1];
       if (sessionId) {
         try {
-          const response = await axios.post(`${API}/auth/google-profile`, {}, {
+          const response = await apiRequest('post', '/auth/google-profile', {}, {
             headers: { 'X-Session-ID': sessionId }
           });
-          login(response.data.token, response.data.user);
+          setUser(response.data.user);
+          sessionStorage.setItem('user', JSON.stringify(response.data.user));
           navigate('/dashboard');
         } catch (error) {
           console.error('Authentication failed:', error);
@@ -810,13 +798,13 @@ const ProfilePage = () => {
     };
 
     handleAuth();
-  }, [login, navigate]);
+  }, [setUser, navigate]);
 
   return <LoadingSpinner />;
 };
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -826,7 +814,7 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await axios.get(`${API}/dashboard`);
+      const response = await apiRequest('get', '/dashboard');
       setDashboardData(response.data);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -952,9 +940,8 @@ const Dashboard = () => {
 };
 
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user } = useUser();
 
-  if (loading) return <LoadingSpinner />;
   if (!user) return <Navigate to="/login" />;
 
   return (
@@ -968,8 +955,13 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const App = () => {
+  axios.interceptors.request.use(config => {
+    console.log('Outgoing request:', config.url, config.headers.Authorization);
+    return config;
+  });
+
   return (
-    <AuthProvider>
+    <UserProvider>
       <Router>
         <Routes>
           <Route path="/" element={<><Header /><LandingPage /></>} />
@@ -983,10 +975,7 @@ const App = () => {
           } />
           <Route path="/kyc" element={
             <ProtectedRoute>
-              <div className="text-center py-20">
-                <h1 className="text-3xl font-bold mb-4">KYC Verification</h1>
-                <p className="text-gray-600">KYC verification flow coming soon...</p>
-              </div>
+              <KYCFlow />
             </ProtectedRoute>
           } />
           <Route path="/services" element={
@@ -1023,7 +1012,7 @@ const App = () => {
           } />
         </Routes>
       </Router>
-    </AuthProvider>
+    </UserProvider>
   );
 };
 
