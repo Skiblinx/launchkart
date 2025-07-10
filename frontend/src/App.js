@@ -4,6 +4,9 @@ import axios from 'axios';
 import './App.css';
 import KYCFlow from './components/KYCFlow';
 import { UserProvider, useUser } from './context/UserContext';
+import ServicesMarketplace from './components/ServicesMarketplace';
+import MentorshipSystem from './components/MentorshipSystem';
+import InvestmentSyndicate from './components/InvestmentSyndicate';
 
 // const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
@@ -980,26 +983,17 @@ const App = () => {
           } />
           <Route path="/services" element={
             <ProtectedRoute>
-              <div className="text-center py-20">
-                <h1 className="text-3xl font-bold mb-4">Services</h1>
-                <p className="text-gray-600">Service marketplace coming soon...</p>
-              </div>
+              <ServicesMarketplace />
             </ProtectedRoute>
           } />
           <Route path="/mentors" element={
             <ProtectedRoute>
-              <div className="text-center py-20">
-                <h1 className="text-3xl font-bold mb-4">Mentors</h1>
-                <p className="text-gray-600">Mentor directory coming soon...</p>
-              </div>
+              <MentorshipSystem />
             </ProtectedRoute>
           } />
           <Route path="/investment" element={
             <ProtectedRoute>
-              <div className="text-center py-20">
-                <h1 className="text-3xl font-bold mb-4">Investment</h1>
-                <p className="text-gray-600">Investment pipeline coming soon...</p>
-              </div>
+              <InvestmentSyndicate />
             </ProtectedRoute>
           } />
           <Route path="/admin" element={
