@@ -16,15 +16,40 @@ import bcrypt
 import jwt
 from passlib.context import CryptContext
 import base64
-from kyc_system import initialize_kyc_system, kyc_health_check
+from backend.kyc_system import initialize_kyc_system, kyc_health_check
+from backend.business_essentials import BusinessEssentialsGenerator
+from fastapi import BackgroundTasks
+from fastapi.responses import FileResponse
+import aiofiles
+from bson import ObjectId
+
+# Modular routers
+from backend.routers.users import router as users_router
+from backend.routers.mentorship import router as mentorship_router
+from backend.routers.services import router as services_router
+from backend.routers.investment import router as investment_router
+from backend.routers.notifications import router as notifications_router
+from backend.routers.analytics import router as analytics_router
+from backend.routers.auth import router as auth_router
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# MongoDB connection with error handling
+try:
+    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+    client = AsyncIOMotorClient(mongo_url)
+    print(f"✅ MongoDB client initialized for {mongo_url}")
+except Exception as e:
+    print(f"❌ Failed to initialize MongoDB client: {e}")
+    print("Please ensure MongoDB is running or check your MONGO_URL in .env file")
+    print("You can:")
+    print("1. Install MongoDB locally")
+    print("2. Use MongoDB Atlas (cloud)")
+    print("3. Use Docker: docker run -d -p 27017:27017 --name mongodb mongo:latest")
+    raise
+
+db = client[os.environ.get('DB_NAME', 'launchkart')]
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -232,182 +257,6 @@ def get_user_by_role(required_role: UserRole):
         return current_user
     return role_checker
 
-# Authentication routes
-@api_router.post("/auth/signup")
-async def signup(user_data: UserSignup):
-    # Validate passwords match
-    if user_data.password != user_data.confirmPassword:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
-    
-    # Check if user already exists
-    existing_user = await db.users.find_one({"email": user_data.email})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Hash password
-    hashed_password = hash_password(user_data.password)
-    
-    # Create user
-    user = User(
-        fullName=user_data.fullName,
-        email=user_data.email,
-        phoneNumber=user_data.phoneNumber,
-        country=user_data.country,
-        businessStage=user_data.businessStage,
-        referralCode=user_data.referralCode,
-        role=user_data.role,
-        password_hash=hashed_password
-    )
-    
-    await db.users.insert_one(user.dict())
-    
-    # Create JWT token
-    token = create_jwt_token({"sub": user.id, "email": user.email})
-    
-    return {
-        "message": "User created successfully",
-        "user": user.dict(),
-        "token": token
-    }
-
-@api_router.post("/auth/login")
-async def login(user_data: UserLogin):
-    # Find user
-    user = await db.users.find_one({"email": user_data.email})
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    # Verify password
-    if not verify_password(user_data.password, user.get("password_hash", "")):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    # Create JWT token
-    token = create_jwt_token({"sub": user["id"], "email": user["email"]})
-    
-    # Convert user to Pydantic model and dict for serialization
-    user_model = User(**user)
-    return {
-        "message": "Login successful",
-        "user": user_model.dict(),
-        "token": token
-    }
-
-@api_router.get("/auth/login-redirect")
-async def login_redirect(request: Request):
-    # For development/demo purposes, return a mock auth URL
-    # This bypasses the external auth service that's causing the state parameter error
-    host = request.headers.get("host", "localhost")
-    protocol = "https" if "preview.emergentagent.com" in host else "http"
-    redirect_url = f"{protocol}://{host}/profile"
-    
-    # Return a mock auth URL that will redirect back to our app
-    auth_url = f"{protocol}://{host}/api/auth/mock-google-callback?redirect={redirect_url}"
-    
-    return {"auth_url": auth_url}
-
-@api_router.get("/auth/mock-google-callback")
-async def mock_google_callback(request: Request):
-    """Mock Google OAuth callback for development/demo purposes"""
-    try:
-        # Get redirect URL from query params
-        redirect_url = request.query_params.get("redirect", "http://localhost:3000/profile")
-        
-        # Create a mock user for demo purposes
-        mock_user_data = {
-            "name": "Demo User",
-            "email": "demo@example.com",
-            "picture": "https://via.placeholder.com/150"
-        }
-        
-        # Check if user exists
-        existing_user = await db.users.find_one({"email": mock_user_data["email"]})
-        
-        if existing_user:
-            user = User(**existing_user)
-        else:
-            # Create new user from mock data
-            user = User(
-                fullName=mock_user_data["name"],
-                email=mock_user_data["email"],
-                phoneNumber="",  # Will be collected later
-                country=Country.INDIA,  # Default, can be updated
-                picture=mock_user_data.get("picture"),
-                role=UserRole.FOUNDER
-            )
-            await db.users.insert_one(user.dict())
-        
-        # Create JWT token
-        token = create_jwt_token({"sub": user.id, "email": user.email})
-        
-        # Redirect to frontend with token
-        return {
-            "user": user.dict(),
-            "token": token,
-            "redirect_url": redirect_url
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.post("/auth/google-profile")
-async def google_profile(request: Request):
-    try:
-        # Get session ID from headers
-        session_id = request.headers.get("X-Session-ID")
-        if not session_id:
-            raise HTTPException(status_code=400, detail="Session ID required")
-        
-        # Call Emergent auth API
-        auth_response = requests.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id}
-        )
-        
-        if auth_response.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid session")
-        
-        auth_data = auth_response.json()
-        
-        # Check if user exists
-        existing_user = await db.users.find_one({"email": auth_data["email"]})
-        
-        if existing_user:
-            user = User(**existing_user)
-        else:
-            # Create new user from Google data
-            user = User(
-                fullName=auth_data["name"],
-                email=auth_data["email"],
-                phoneNumber="",  # Will be collected later
-                country=Country.INDIA,  # Default, can be updated
-                picture=auth_data.get("picture"),
-                role=UserRole.FOUNDER
-            )
-            await db.users.insert_one(user.dict())
-        
-        # Create JWT token
-        token = create_jwt_token({"sub": user.id, "email": user.email})
-        
-        return {
-            "user": user.dict(),
-            "token": token
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.get("/auth/me")
-async def get_current_user_profile(current_user: User = Depends(get_current_user)):
-    return current_user
-
-@api_router.put("/auth/role")
-async def update_user_role(role: UserRole, current_user: User = Depends(get_current_user)):
-    await db.users.update_one(
-        {"id": current_user.id},
-        {"$set": {"role": role, "updated_at": datetime.utcnow()}}
-    )
-    return {"message": "Role updated successfully"}
-
 # KYC routes
 @api_router.post("/kyc/basic")
 async def submit_basic_kyc(
@@ -481,266 +330,119 @@ async def get_kyc_status(current_user: User = Depends(get_current_user)):
         "kyc_verified_at": current_user.kyc_verified_at
     }
 
-# Mentorship routes
-@api_router.get("/mentors")
-async def get_mentors(
-    expertise: Optional[str] = None,
-    country: Optional[Country] = None
-):
-    filter_query = {}
-    if expertise:
-        filter_query["expertise"] = {"$in": [expertise]}
-    
-    mentors = await db.mentors.find(filter_query).to_list(100)
-    
-    # Populate mentor user data
-    for mentor in mentors:
-        user = await db.users.find_one({"id": mentor["user_id"]})
-        mentor["user"] = user
-    
-    return mentors
-
-@api_router.post("/mentors/profile")
-async def create_mentor_profile(
-    expertise: List[str] = Form(...),
-    experience_years: int = Form(...),
-    hourly_rate: float = Form(...),
-    bio: str = Form(...),
-    current_user: User = Depends(get_current_user)
-):
-    mentor = Mentor(
-        user_id=current_user.id,
-        expertise=expertise,
-        experience_years=experience_years,
-        hourly_rate=hourly_rate,
-        bio=bio,
-        availability={}
-    )
-    
-    await db.mentors.insert_one(mentor.dict())
-    return {"message": "Mentor profile created successfully"}
-
-@api_router.post("/mentorship/book")
-async def book_mentorship_session(
-    mentor_id: str = Form(...),
-    scheduled_at: datetime = Form(...),
-    duration: int = Form(60),
-    current_user: User = Depends(get_current_user)
-):
-    session = MentorshipSession(
-        mentor_id=mentor_id,
-        mentee_id=current_user.id,
-        scheduled_at=scheduled_at,
-        duration=duration
-    )
-    
-    await db.mentorship_sessions.insert_one(session.dict())
-    return {"message": "Mentorship session booked successfully"}
-
-@api_router.get("/mentorship/sessions")
-async def get_user_sessions(current_user: User = Depends(get_current_user)):
-    sessions = await db.mentorship_sessions.find({
-        "$or": [
-            {"mentor_id": current_user.id},
-            {"mentee_id": current_user.id}
-        ]
-    }).to_list(100)
-    
-    return sessions
-
-# Investment routes
-@api_router.post("/investment/pitch")
-async def submit_pitch(
-    company_name: str = Form(...),
-    industry: str = Form(...),
-    funding_amount: float = Form(...),
-    equity_offering: float = Form(...),
-    team_info: str = Form(...),
-    pitch_deck: UploadFile = File(...),
-    current_user: User = Depends(get_current_user)
-):
-    # Check if user has full KYC
-    if current_user.kyc_level != KYCLevel.FULL:
-        raise HTTPException(status_code=400, detail="Full KYC required for investment applications")
-    
-    # Convert pitch deck to base64
-    file_content = await pitch_deck.read()
-    pitch_deck_data = base64.b64encode(file_content).decode('utf-8')
-    
-    # Parse team info JSON
-    import json
-    team_data = json.loads(team_info)
-    
-    pitch = PitchSubmission(
-        user_id=current_user.id,
-        company_name=company_name,
-        industry=industry,
-        funding_amount=funding_amount,
-        equity_offering=equity_offering,
-        pitch_deck=pitch_deck_data,
-        team_info=team_data
-    )
-    
-    await db.pitch_submissions.insert_one(pitch.dict())
-    return {"message": "Pitch submitted successfully"}
-
-@api_router.get("/investment/applications")
-async def get_investment_applications(current_user: User = Depends(get_current_user)):
-    applications = await db.pitch_submissions.find({"user_id": current_user.id}).to_list(100)
-    return applications
-
-@api_router.get("/investment/dashboard")
-async def get_investor_dashboard(current_user: User = Depends(get_user_by_role(UserRole.INVESTOR))):
-    pitches = await db.pitch_submissions.find({}).to_list(100)
-    
-    # Populate user data
-    for pitch in pitches:
-        user = await db.users.find_one({"id": pitch["user_id"]})
-        pitch["user"] = user
-    
-    return pitches
-
-# Admin routes
-@api_router.get("/admin/users")
-async def get_all_users(current_user: User = Depends(get_user_by_role(UserRole.ADMIN))):
-    users = await db.users.find().to_list(1000)
-    return users
-
-@api_router.put("/admin/kyc/approve")
-async def approve_kyc(
-    user_id: str = Form(...),
-    kyc_level: KYCLevel = Form(...),
-    current_user: User = Depends(get_user_by_role(UserRole.ADMIN))
-):
-    await db.users.update_one(
-        {"id": user_id},
-        {"$set": {
-            "kyc_status": KYCStatus.VERIFIED.value,
-            "kyc_level": kyc_level.value,
-            "kyc_verified_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        }}
-    )
-    return {"message": "KYC approved successfully"}
-
-@api_router.get("/admin/service-requests")
-async def get_all_service_requests(current_user: User = Depends(get_user_by_role(UserRole.ADMIN))):
-    requests = await db.service_requests.find().to_list(1000)
-    return requests
-
-@api_router.put("/admin/service-request/assign")
-async def assign_service_request(
-    request_id: str = Form(...),
-    assigned_to: str = Form(...),
-    current_user: User = Depends(get_user_by_role(UserRole.ADMIN))
-):
-    await db.service_requests.update_one(
-        {"id": request_id},
-        {"$set": {"assigned_to": assigned_to, "updated_at": datetime.utcnow()}}
-    )
-    return {"message": "Service request assigned successfully"}
-
-@api_router.get("/admin/investment/review")
-async def get_investment_review(current_user: User = Depends(get_user_by_role(UserRole.ADMIN))):
-    pitches = await db.pitch_submissions.find({}).to_list(100)
-    return pitches
-
-@api_router.put("/admin/investment/review")
-async def review_investment(
-    pitch_id: str = Form(...),
-    review_status: str = Form(...),
-    review_notes: str = Form(...),
-    current_user: User = Depends(get_user_by_role(UserRole.ADMIN))
-):
-    await db.pitch_submissions.update_one(
-        {"id": pitch_id},
-        {"$set": {
-            "review_status": review_status,
-            "review_notes": review_notes,
-            "reviewed_by": current_user.id,
-            "updated_at": datetime.utcnow()
-        }}
-    )
-    return {"message": "Investment review completed"}
-
-@api_router.get("/admin/kyc/health")
-async def get_kyc_health(current_user: User = Depends(get_user_by_role(UserRole.ADMIN))):
-    return await kyc_health_check(db)
-
-# Dashboard routes
-@api_router.get("/dashboard")
-async def get_dashboard(current_user: User = Depends(get_current_user)):
-    # Get user's business essentials
-    essentials = await db.business_essentials.find({"user_id": current_user.id}).to_list(100)
-    
-    # Get user's service requests
-    services = await db.service_requests.find({"user_id": current_user.id}).to_list(100)
-    
-    # Get user's mentorship sessions
-    sessions = await db.mentorship_sessions.find({
-        "$or": [
-            {"mentor_id": current_user.id},
-            {"mentee_id": current_user.id}
-        ]
-    }).to_list(100)
-    
-    # Get user's investment applications
-    applications = await db.pitch_submissions.find({"user_id": current_user.id}).to_list(100)
-    
-    dashboard_data = {
-        "user": current_user.dict(),
-        "business_essentials": essentials,
-        "service_requests": services,
-        "mentorship_sessions": sessions,
-        "investment_applications": applications,
-        "stats": {
-            "total_essentials": len(essentials),
-            "total_services": len(services),
-            "total_sessions": len(sessions),
-            "total_applications": len(applications),
-            "completed_services": len([s for s in services if s["status"] == "completed"])
-        }
-    }
-    
-    return dashboard_data
-
 # Business essentials routes (existing)
 @api_router.get("/business-essentials")
 async def get_business_essentials(current_user: User = Depends(get_current_user)):
     essentials = await db.business_essentials.find({"user_id": current_user.id}).to_list(100)
     return essentials
 
-# Service routes (existing)
-@api_router.get("/services")
-async def get_services():
-    services = [
-        {"id": "incorporation", "title": "Company Incorporation", "description": "Legal company setup in India/UAE", "price": 500},
-        {"id": "website", "title": "Professional Website", "description": "Complete business website with CMS", "price": 1500},
-        {"id": "mobile-app", "title": "Mobile App Development", "description": "Native iOS/Android app", "price": 3000},
-        {"id": "legal-docs", "title": "Legal Documents", "description": "MoU, NDA, SHA preparation", "price": 300},
-        {"id": "marketing", "title": "Marketing Strategy", "description": "Complete marketing and SEO plan", "price": 800},
-        {"id": "trademark", "title": "Trademark Registration", "description": "Brand protection and registration", "price": 400},
-    ]
-    return services
+# Business Essentials Asset Generation Routes
+def fix_mongo_ids(doc):
+    """Recursively convert all ObjectId fields in a dict to strings."""
+    if isinstance(doc, list):
+        return [fix_mongo_ids(item) for item in doc]
+    if isinstance(doc, dict):
+        return {k: fix_mongo_ids(v) for k, v in doc.items()}
+    if isinstance(doc, ObjectId):
+        return str(doc)
+    return doc
 
-@api_router.post("/services/request")
-async def create_service_request(
-    service_type: str = Form(...),
-    title: str = Form(...),
-    description: str = Form(...),
-    budget: float = Form(...),
+@api_router.get("/business-essentials/user-assets")
+async def get_user_assets(current_user: User = Depends(get_current_user)):
+    """Get all user's generated assets"""
+    try:
+        # Check KYC requirement
+        if current_user.kyc_level == KYCLevel.NONE:
+            return {"kyc_required": True, "message": "Basic KYC required for business essentials"}
+        
+        # Get user's assets
+        assets_cursor = db.user_assets.find({"user_id": current_user.id})
+        user_assets = await assets_cursor.to_list(100)
+        
+        # Organize assets by type
+        assets_by_type = {}
+        for asset in user_assets:
+            asset_type = asset["asset_type"]
+            assets_by_type[asset_type] = fix_mongo_ids(asset)
+        
+        return {"assets": assets_by_type}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/business-essentials/generate-asset")
+async def generate_asset(
+    request: dict,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
 ):
-    service_request = ServiceRequest(
-        user_id=current_user.id,
-        service_type=service_type,
-        title=title,
-        description=description,
-        budget=budget
-    )
-    
-    await db.service_requests.insert_one(service_request.dict())
-    return {"message": "Service request created successfully", "request": service_request}
+    """Request generation of a specific asset"""
+    try:
+        asset_type = request.get("asset_type")
+        
+        if not asset_type:
+            raise HTTPException(status_code=400, detail="Asset type is required")
+        
+        valid_asset_types = ["logo", "landing_page", "social_creatives", "promo_video", "mockups"]
+        if asset_type not in valid_asset_types:
+            raise HTTPException(status_code=400, detail=f"Invalid asset type. Must be one of: {valid_asset_types}")
+        
+        # Check KYC requirement
+        if current_user.kyc_level == KYCLevel.NONE:
+            raise HTTPException(status_code=403, detail="Basic KYC verification required")
+        
+        # Initialize generator
+        generator = BusinessEssentialsGenerator(db)
+        
+        # Generate asset
+        user_data = current_user.dict()
+        asset = await generator.generate_single_asset(
+            current_user.id, 
+            asset_type, 
+            user_data,
+            background_tasks
+        )
+        asset = fix_mongo_ids(asset)
+        
+        return {
+            "message": f"{asset_type.replace('_', ' ').title()} generation started",
+            "asset": asset
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating asset: {e}")
+        raise HTTPException(status_code=500, detail="Asset generation failed")
+
+@api_router.get("/business-essentials/asset-status/{asset_type}")
+async def get_asset_status(asset_type: str, current_user: User = Depends(get_current_user)):
+    asset = await db.user_assets.find_one({"user_id": current_user.id, "asset_type": asset_type})
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    asset = fix_mongo_ids(asset)
+    status = asset.get("status", "unknown") if isinstance(asset, dict) else "unknown"
+    return {
+        "status": status,
+        "asset": asset
+    }
+
+@api_router.get("/business-essentials/download/{asset_id}")
+async def download_asset(asset_id: str, current_user: User = Depends(get_current_user)):
+    """Download a generated asset as a ZIP file"""
+    generator = BusinessEssentialsGenerator(db)
+    zip_path = await generator.create_asset_download_package(asset_id)
+    if not zip_path:
+        raise HTTPException(status_code=404, detail="Asset not found or not ready")
+    return FileResponse(zip_path, filename=os.path.basename(zip_path), media_type="application/zip")
+
+@api_router.get("/business-essentials/assets/{filename}")
+async def serve_asset_file(filename: str):
+    """Serve generated asset files (images, html, etc)"""
+    storage_path = os.path.join("./storage/essentials", filename)
+    if not os.path.exists(storage_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(storage_path)
 
 # Legal/Static pages
 @api_router.get("/legal/terms")
@@ -764,8 +466,100 @@ async def get_investment_disclaimer():
         "content": "Investment disclaimer content for LaunchKart platform..."
     }
 
-# Include the router in the main app
-app.include_router(api_router)
+# Service requests endpoint for frontend compatibility
+@api_router.get("/service-requests")
+async def get_service_requests(current_user: User = Depends(get_current_user)):
+    """Get all service requests for the current user"""
+    requests = await db.service_requests.find({"user_id": current_user.id}).to_list(100)
+    
+    # Convert ObjectIds to strings for JSON serialization
+    def fix_mongo_ids(obj):
+        if isinstance(obj, list):
+            return [fix_mongo_ids(item) for item in obj]
+        if isinstance(obj, dict):
+            return {k: fix_mongo_ids(v) for k, v in obj.items()}
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        return obj
+    
+    # Fix ObjectIds in the response
+    requests = fix_mongo_ids(requests)
+    
+    return requests
+
+# Mentors profile endpoint for frontend compatibility
+@api_router.post("/mentors/profile")
+async def create_mentor_profile(
+    expertise: List[str] = Form(...),
+    experience_years: int = Form(...),
+    hourly_rate: float = Form(...),
+    bio: str = Form(...),
+    languages: List[str] = Form([]),
+    company: Optional[str] = Form(None),
+    achievements: List[str] = Form([]),
+    current_user: User = Depends(get_current_user)
+):
+    """Create mentor profile - frontend compatibility endpoint"""
+    from backend.models.mentor import EnhancedMentor
+    
+    mentor = EnhancedMentor(
+        user_id=current_user.id,
+        expertise=expertise,
+        experience_years=experience_years,
+        hourly_rate=hourly_rate,
+        bio=bio,
+        languages=languages,
+        company=company,
+        achievements=achievements,
+        availability={}
+    )
+    await db.mentors.insert_one(mentor.dict())
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": {"role": "mentor"}}
+    )
+    return {"message": "Mentor profile created successfully"}
+
+# Dashboard endpoint for frontend compatibility
+@api_router.get("/dashboard")
+async def get_dashboard(current_user: User = Depends(get_current_user)):
+    """Get dashboard analytics - frontend compatibility endpoint"""
+    # Get user's data for dashboard
+    user_requests = await db.service_requests.find({"user_id": current_user.id}).to_list(100)
+    user_sessions = await db.mentorship_sessions.find({
+        "$or": [
+            {"mentor_id": current_user.id},
+            {"mentee_id": current_user.id}
+        ]
+    }).to_list(100)
+    user_pitches = await db.pitch_submissions.find({"user_id": current_user.id}).to_list(100)
+    
+    # Fix ObjectIds for JSON serialization
+    user_requests = fix_mongo_ids(user_requests)
+    user_sessions = fix_mongo_ids(user_sessions)
+    user_pitches = fix_mongo_ids(user_pitches)
+    
+    return {
+        "user": current_user.dict(),
+        "service_requests": user_requests,
+        "mentorship_sessions": user_sessions,
+        "pitch_submissions": user_pitches,
+        "stats": {
+            "total_requests": len(user_requests),
+            "total_sessions": len(user_sessions),
+            "total_pitches": len(user_pitches)
+        }
+    }
+
+# Include modular routers
+app.include_router(api_router)  # Include the main API router with /api prefix
+app.include_router(users_router)
+app.include_router(mentorship_router)
+app.include_router(services_router)
+app.include_router(investment_router)
+app.include_router(notifications_router)
+app.include_router(analytics_router)
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
