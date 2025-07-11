@@ -62,10 +62,7 @@ app = FastAPI(title="LaunchKart API", version="2.0.0")
 # --- CORS SETTINGS: Add this after app = FastAPI(...) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        # "http://localhost:3000",  # local React dev
-        # "https://your-site-name.netlify.app",  # replace with your Netlify URL
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
