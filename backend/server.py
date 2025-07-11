@@ -59,6 +59,19 @@ JWT_ALGORITHM = "HS256"
 # Create the main app without a prefix
 app = FastAPI(title="LaunchKart API", version="2.0.0")
 
+# --- CORS SETTINGS: Add this after app = FastAPI(...) ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        # "http://localhost:3000",  # local React dev
+        # "https://your-site-name.netlify.app",  # replace with your Netlify URL
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# --- END CORS SETTINGS ---
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
@@ -560,14 +573,6 @@ app.include_router(investment_router)
 app.include_router(notifications_router)
 app.include_router(analytics_router)
 app.include_router(auth_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Configure logging
 logging.basicConfig(

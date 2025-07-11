@@ -9,7 +9,8 @@ import MentorshipSystem from './components/MentorshipSystem';
 import InvestmentSyndicate from './components/InvestmentSyndicate';
 
 // const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+// const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://your-app.onrender.com/api';
 const API = `${BACKEND_URL}/api`;
 
 // Utility for authenticated requests (always include token from sessionStorage)
