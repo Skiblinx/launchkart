@@ -15,6 +15,8 @@ class User(BaseModel):
     picture: Optional[str] = None
     session_token: Optional[str] = None
     password_hash: Optional[str] = None
+    email_verified: bool = False
+    email_verified_at: Optional[datetime] = None
     kyc_level: str = "none"
     kyc_status: str = "pending"
     kyc_verified_at: Optional[datetime] = None

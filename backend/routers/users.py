@@ -10,6 +10,7 @@ from passlib.context import CryptContext
 import uuid
 from jose import jwt
 
+
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

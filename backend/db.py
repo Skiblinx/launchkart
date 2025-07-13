@@ -5,6 +5,7 @@ from backend.models.user import User
 import os
 from datetime import datetime
 from jose import jwt
+
 from jose.exceptions import ExpiredSignatureError, JWTError
 from dotenv import load_dotenv
 from pathlib import Path
@@ -37,6 +38,10 @@ except Exception as e:
 db = client[DB_NAME]
 
 security = HTTPBearer()
+
+async def get_database():
+    """Get database instance for dependency injection"""
+    return db
 
 def verify_jwt_token(token: str):
     try:

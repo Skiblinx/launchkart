@@ -1,18 +1,34 @@
-from fastapi import APIRouter, Depends, HTTPException, Form, Request
+from fastapi import APIRouter, Depends, HTTPException, Form, Request, BackgroundTasks
 from backend.db import db, get_current_user
 from backend.models.user import User
-from passlib.context import CryptContext
+import hashlib
+import secrets
 from jose import jwt
+
 import os
 from typing import Optional
 from pydantic import BaseModel
 import requests
 from datetime import datetime, timedelta
 from enum import Enum
+import uuid
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def hash_password(password: str) -> str:
+    """Hash password using SHA-256 with salt"""
+    salt = secrets.token_hex(32)
+    pwdhash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+    return salt + pwdhash.hex()
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Verify password against stored hash"""
+    if len(stored_hash) < 64:
+        return False
+    salt = stored_hash[:64]
+    stored_pwdhash = stored_hash[64:]
+    pwdhash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+    return pwdhash.hex() == stored_pwdhash
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-here')
 JWT_ALGORITHM = "HS256"
 
@@ -52,13 +68,20 @@ def create_jwt_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 @router.post("/signup")
-async def signup(data: SignupRequest):
+async def signup(data: SignupRequest, background_tasks: BackgroundTasks):
+    # Validate passwords match
     if data.password != data.confirmPassword:
         raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    # Check if user already exists
     existing_user = await db.users.find_one({"email": data.email})
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    hashed_password = pwd_context.hash(data.password)
+    
+    # Hash password
+    hashed_password = hash_password(data.password)
+    
+    # Create user with email_verified = False
     user = User(
         fullName=data.fullName,
         email=data.email,
@@ -67,25 +90,63 @@ async def signup(data: SignupRequest):
         businessStage=data.businessStage,
         referralCode=data.referralCode,
         role=data.role,
-        password_hash=hashed_password
+        password_hash=hashed_password,
+        email_verified=False  # New field for email verification
     )
+    
+    # Insert user
     await db.users.insert_one(user.dict())
-    token = create_jwt_token({"sub": user.id, "email": user.email})
+    
+    # Create email verification token
+    verification_token = {
+        "id": str(uuid.uuid4()),
+        "email": data.email,
+        "token": str(uuid.uuid4()),
+        "user_id": user.id,
+        "created_at": datetime.utcnow(),
+        "expires_at": datetime.utcnow() + timedelta(hours=24),
+        "used": False
+    }
+    
+    await db.email_verifications.insert_one(verification_token)
+    
+    # Send verification email
+    from backend.utils.email_service import email_service
+    background_tasks.add_task(
+        send_verification_email_task,
+        data.email,
+        data.fullName,
+        verification_token["token"]
+    )
+    
     return {
-        "message": "User created successfully",
+        "message": "User created successfully. Please check your email to verify your account.",
         "user": user.dict(),
-        "token": token
+        "email_verification_required": True
     }
 
 @router.post("/login")
 async def login(data: LoginRequest):
+    # Find user
     user = await db.users.find_one({"email": data.email})
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    if not pwd_context.verify(data.password, user.get("password_hash", "")):
+    
+    # Verify password
+    if not verify_password(data.password, user.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Check if email is verified
+    if not user.get("email_verified", False):
+        raise HTTPException(
+            status_code=403, 
+            detail="Email not verified. Please check your email and verify your account before signing in."
+        )
+    
+    # Create JWT token
     token = create_jwt_token({"sub": user["id"], "email": user["email"]})
     user_model = User(**user)
+    
     return {
         "message": "Login successful",
         "user": user_model.dict(),
@@ -205,4 +266,17 @@ async def update_user_role(role: UserRole, current_user: User = Depends(get_curr
         {"id": current_user.id},
         {"$set": {"role": role, "updated_at": datetime.utcnow()}}
     )
-    return {"message": "Role updated successfully"} 
+    return {"message": "Role updated successfully"}
+
+# Background task functions
+async def send_verification_email_task(email: str, full_name: str, token: str):
+    """Send verification email as background task"""
+    try:
+        from backend.utils.email_service import email_service
+        success = email_service.send_email_verification(email, full_name, token)
+        if success:
+            print(f"✅ Verification email sent to {email}")
+        else:
+            print(f"❌ Failed to send verification email to {email}")
+    except Exception as e:
+        print(f"❌ Error in background verification email task: {str(e)}") 

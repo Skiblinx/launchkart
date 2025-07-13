@@ -31,6 +31,8 @@ from backend.routers.investment import router as investment_router
 from backend.routers.notifications import router as notifications_router
 from backend.routers.analytics import router as analytics_router
 from backend.routers.auth import router as auth_router
+from backend.routers.admin_management import router as admin_management_router
+from backend.routers.email_verification import router as email_verification_router
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -570,6 +572,8 @@ app.include_router(investment_router)
 app.include_router(notifications_router)
 app.include_router(analytics_router)
 app.include_router(auth_router)
+app.include_router(admin_management_router)
+app.include_router(email_verification_router)
 
 # Configure logging
 logging.basicConfig(
