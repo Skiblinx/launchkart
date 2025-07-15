@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Form, Request, BackgroundTasks
 from backend.db import db, get_current_user
 from backend.models.user import User
-import hashlib
-import secrets
+from passlib.context import CryptContext
 from jose import jwt
 
 import os
@@ -12,23 +11,37 @@ import requests
 from datetime import datetime, timedelta
 from enum import Enum
 import uuid
+import hashlib
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+# Password context for hashing - using argon2 for better compatibility
+pwd_context = CryptContext(
+    schemes=["argon2", "bcrypt"],
+    deprecated="auto",
+    argon2__default_rounds=4,
+)
+
 def hash_password(password: str) -> str:
-    """Hash password using SHA-256 with salt"""
-    salt = secrets.token_hex(32)
-    pwdhash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
-    return salt + pwdhash.hex()
+    """Hash password using passlib"""
+    return pwd_context.hash(password)
 
 def verify_password(password: str, stored_hash: str) -> bool:
-    """Verify password against stored hash"""
-    if len(stored_hash) < 64:
-        return False
-    salt = stored_hash[:64]
-    stored_pwdhash = stored_hash[64:]
-    pwdhash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
-    return pwdhash.hex() == stored_pwdhash
+    """Verify password against stored hash - supports both passlib and legacy formats"""
+    try:
+        # First try passlib verification (new format)
+        return pwd_context.verify(password, stored_hash)
+    except:
+        # Fallback to legacy pbkdf2_hmac verification for existing users
+        try:
+            if len(stored_hash) < 64:
+                return False
+            salt = stored_hash[:64]
+            stored_pwdhash = stored_hash[64:]
+            pwdhash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
+            return pwdhash.hex() == stored_pwdhash
+        except:
+            return False
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-here')
 JWT_ALGORITHM = "HS256"
 
@@ -127,17 +140,24 @@ async def signup(data: SignupRequest, background_tasks: BackgroundTasks):
 
 @router.post("/login")
 async def login(data: LoginRequest):
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # Find user
     user = await db.users.find_one({"email": data.email})
     if not user:
+        logger.warning(f"Login attempt with non-existent email: {data.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Verify password
-    if not verify_password(data.password, user.get("password_hash", "")):
+    password_valid = verify_password(data.password, user.get("password_hash", ""))
+    if not password_valid:
+        logger.warning(f"Login attempt with invalid password for user: {data.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Check if email is verified
     if not user.get("email_verified", False):
+        logger.warning(f"Login attempt with unverified email: {data.email}")
         raise HTTPException(
             status_code=403, 
             detail="Email not verified. Please check your email and verify your account before signing in."

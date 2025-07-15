@@ -1052,12 +1052,17 @@ const MentorshipSystem = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Expert Mentorship</h1>
+    <section className="bg-white rounded-2xl shadow-2xl p-8 sm:p-12 mb-8 border border-gray-100 max-w-7xl mx-auto">
+      <div className="flex items-center gap-4 mb-10 justify-center">
+        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+          <span className="text-white text-2xl">🎓</span>
+        </div>
+        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Expert Mentorship</h2>
+      </div>
+
+      <div className="text-center mb-8">
         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Connect with experienced mentors who can guide you through your entrepreneurial journey.
+          Connect with experienced mentors who can guide you through your entrepreneurial journey.<br />
           Get personalized advice from industry experts across technology, business, and more.
         </p>
       </div>
@@ -1066,7 +1071,7 @@ const MentorshipSystem = () => {
       {!assessmentCompleted && activeTab === 'find-mentors' && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
                 <BookOpen className="w-6 h-6 text-yellow-600" />
               </div>
@@ -1090,11 +1095,11 @@ const MentorshipSystem = () => {
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-8">
         <button
           onClick={() => setActiveTab('find-mentors')}
-          className={`flex-1 py-3 px-4 text-sm font-medium rounded-md transition-colors ${activeTab === 'find-mentors'
-            ? 'bg-white text-blue-600 shadow-sm'
+          className={`flex-1 py-3 px-4 text-base font-semibold rounded-md transition-colors ${activeTab === 'find-mentors'
+            ? 'bg-white text-blue-600 shadow-lg'
             : 'text-gray-500 hover:text-gray-700'
             }`}
         >
@@ -1334,7 +1339,7 @@ const MentorshipSystem = () => {
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 };
 

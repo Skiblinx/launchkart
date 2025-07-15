@@ -16,7 +16,6 @@ from backend.utils.email_service import email_service
 
 router = APIRouter(prefix="/api/email", tags=["email-verification"])
 logger = logging.getLogger(__name__)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 @router.post("/verify")
 async def verify_email(
@@ -222,7 +221,14 @@ async def confirm_password_reset(
                 detail="Password must be at least 8 characters long"
             )
         
-        # Hash new password
+        # Password context for hashing - using argon2 for better compatibility
+        pwd_context = CryptContext(
+            schemes=["argon2", "bcrypt"],
+            deprecated="auto",
+            argon2__default_rounds=4,
+        )
+        
+        # Hash new password using passlib
         hashed_password = pwd_context.hash(request.new_password)
         
         # Update user password

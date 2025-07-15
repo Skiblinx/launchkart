@@ -94,7 +94,7 @@ async def promote_user_to_admin(
             role=request.role,
             permissions=request.permissions,
             is_active=True,
-            created_by=current_admin["email"],
+            created_by=current_admin.email,
             created_at=datetime.utcnow()
         )
         
@@ -113,12 +113,12 @@ async def promote_user_to_admin(
             user["email"],
             user["fullName"],
             request.role,
-            current_admin["email"]
+            current_admin.email
         )
         
         audit_log = {
             "id": str(uuid.uuid4()),
-            "admin_email": current_admin["email"],
+            "admin_email": current_admin.email,
             "action": "user_promoted_to_admin",
             "resource_type": "admin_user",
             "resource_id": request.user_id,
@@ -185,7 +185,7 @@ async def get_admin_dashboard(
                 "pending_kyc": pending_kyc
             },
             "recent_users": recent_users,
-            "permissions": current_admin["permissions"]
+            "permissions": current_admin.permissions
         }
         
     except Exception as e:
@@ -269,7 +269,7 @@ async def update_user_kyc(
         # Create audit log
         audit_log = {
             "id": str(uuid.uuid4()),
-            "admin_email": current_admin["email"],
+            "admin_email": current_admin.email,
             "action": "kyc_status_updated",
             "resource_type": "user",
             "resource_id": user_id,
@@ -281,7 +281,7 @@ async def update_user_kyc(
         }
         await db.admin_audit_logs.insert_one(audit_log)
         
-        logger.info(f"KYC status updated for user {user_id} to {request.status} by {current_admin['email']}")
+        logger.info(f"KYC status updated for user {user_id} to {request.status} by {current_admin.email}")
         
         return {"message": f"KYC status updated to {request.status}"}
         
@@ -386,7 +386,7 @@ async def update_service_request(
         # Create audit log
         audit_log = {
             "id": str(uuid.uuid4()),
-            "admin_email": current_admin["email"],
+            "admin_email": current_admin.email,
             "action": "service_request_updated",
             "resource_type": "service_request",
             "resource_id": request_id,
@@ -399,7 +399,7 @@ async def update_service_request(
         }
         await db.admin_audit_logs.insert_one(audit_log)
         
-        logger.info(f"Service request {request_id} updated to {request.status} by {current_admin['email']}")
+        logger.info(f"Service request {request_id} updated to {request.status} by {current_admin.email}")
         
         return {"message": f"Service request updated to {request.status}"}
         
@@ -584,7 +584,7 @@ async def toggle_maintenance_mode(
                 "$set": {
                     "value": request.enable,
                     "message": request.message,
-                    "updated_by": current_admin["email"],
+                    "updated_by": current_admin.email,
                     "updated_at": datetime.utcnow()
                 }
             },
@@ -594,7 +594,7 @@ async def toggle_maintenance_mode(
         # Create audit log
         audit_log = {
             "id": str(uuid.uuid4()),
-            "admin_email": current_admin["email"],
+            "admin_email": current_admin.email,
             "action": "maintenance_mode_toggled",
             "resource_type": "system",
             "resource_id": "maintenance_mode",
@@ -607,7 +607,7 @@ async def toggle_maintenance_mode(
         await db.admin_audit_logs.insert_one(audit_log)
         
         status = "enabled" if request.enable else "disabled"
-        logger.info(f"Maintenance mode {status} by {current_admin['email']}")
+        logger.info(f"Maintenance mode {status} by {current_admin.email}")
         
         return {
             "message": f"Maintenance mode {status}",
