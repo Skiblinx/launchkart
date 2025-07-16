@@ -16,7 +16,7 @@ black>=24.1.1
 isort>=5.13.2
 flake8>=7.0.0
 mypy>=1.8.0
-python-jose>=3.3.0
+python-jose[cryptography]>=3.3.0
 requests>=2.31.0
 pandas>=2.2.0
 numpy>=1.26.0
@@ -29,3 +29,14 @@ starlette>=0.36.3
 aiofiles>=23.2.1
 Pillow>=10.3.0
 jinja2>=3.1.3
+# Admin panel and enhanced functionality dependencies
+httpx>=0.27.0
+# Data processing and analytics for admin reports
+openpyxl>=3.1.2
+xlsxwriter>=3.2.0
+# Security and validation for admin OTP
+pyotp>=2.9.0
+# File handling and storage
+python-magic>=0.4.27
+# Admin utilities for better CLI output
+rich>=13.7.0

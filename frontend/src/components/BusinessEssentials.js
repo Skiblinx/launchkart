@@ -424,36 +424,36 @@ const BusinessEssentials = ({ user }) => {
   const totalAssets = Object.keys(assetConfigs).length;
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8" data-section="business-essentials">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
-        <div className="flex items-center">
-          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
-            <span className="text-white text-lg">🎁</span>
+    <section className="bg-white rounded-2xl shadow-2xl p-8 sm:p-12 mb-8 border border-gray-100 max-w-7xl mx-auto" data-section="business-essentials">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <span className="text-white text-2xl">🎁</span>
           </div>
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Your Free Business Essentials</h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Your Free Business Essentials</h2>
+            <p className="text-base text-gray-500 mt-1">
               {readyAssets}/{totalAssets} assets generated
             </p>
           </div>
         </div>
 
         {readyAssets > 0 && (
-          <div className="flex items-center space-x-2">
-            <div className="w-full sm:w-48 bg-gray-200 rounded-full h-2">
+          <div className="flex items-center gap-3">
+            <div className="w-48 bg-gray-200 rounded-full h-3">
               <div
-                className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-300"
                 style={{ width: `${(readyAssets / totalAssets) * 100}%` }}
               ></div>
             </div>
-            <span className="text-sm text-gray-600 whitespace-nowrap">
+            <span className="text-base text-gray-600 font-medium">
               {Math.round((readyAssets / totalAssets) * 100)}%
             </span>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid gap-8 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         {Object.entries(assetConfigs).map(([assetType, config]) => (
           <AssetCard
             key={assetType}
@@ -465,19 +465,17 @@ const BusinessEssentials = ({ user }) => {
       </div>
 
       {readyAssets === totalAssets && (
-        <div className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
-          <div className="text-center">
-            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold mb-2">🚀 Complete Package Ready!</h3>
-            <p className="text-gray-600 mb-4">
-              All your business essentials are ready to download. Start building your brand presence today!
-            </p>
-          </div>
+        <div className="mt-12 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-8 shadow text-center">
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h3 className="text-2xl font-bold mb-2">🚀 Complete Package Ready!</h3>
+          <p className="text-gray-700 mb-4 text-lg">
+            All your business essentials are ready to download. Start building your brand presence today!
+          </p>
         </div>
       )}
 
       <PreviewModal modalData={previewModal} onClose={() => setPreviewModal(null)} />
-    </div>
+    </section>
   );
 };
 

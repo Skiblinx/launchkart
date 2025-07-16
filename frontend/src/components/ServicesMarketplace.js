@@ -466,13 +466,20 @@ const ServicesMarketplace = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <section className="bg-white rounded-2xl shadow-2xl p-8 sm:p-12 mb-8 border border-gray-100 max-w-7xl mx-auto">
+      <div className="flex items-center gap-4 mb-10">
+        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+          <span className="text-white text-2xl">🛒</span>
+        </div>
+        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Services Marketplace</h2>
+      </div>
+
       {/* Navigation Tabs */}
-      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-8">
         <button
           onClick={() => setActiveTab('services')}
-          className={`flex-1 py-3 px-4 text-sm font-medium rounded-md transition-colors ${activeTab === 'services'
-            ? 'bg-white text-blue-600 shadow-sm'
+          className={`flex-1 py-3 px-4 text-base font-semibold rounded-md transition-colors ${activeTab === 'services'
+            ? 'bg-white text-blue-600 shadow-lg'
             : 'text-gray-500 hover:text-gray-700'
             }`}
         >
@@ -480,8 +487,8 @@ const ServicesMarketplace = () => {
         </button>
         <button
           onClick={() => setActiveTab('business-essentials')}
-          className={`flex-1 py-3 px-4 text-sm font-medium rounded-md transition-colors ${activeTab === 'business-essentials'
-            ? 'bg-white text-blue-600 shadow-sm'
+          className={`flex-1 py-3 px-4 text-base font-semibold rounded-md transition-colors ${activeTab === 'business-essentials'
+            ? 'bg-white text-blue-600 shadow-lg'
             : 'text-gray-500 hover:text-gray-700'
             }`}
         >
@@ -489,8 +496,8 @@ const ServicesMarketplace = () => {
         </button>
         <button
           onClick={() => setActiveTab('my-requests')}
-          className={`flex-1 py-3 px-4 text-sm font-medium rounded-md transition-colors ${activeTab === 'my-requests'
-            ? 'bg-white text-blue-600 shadow-sm'
+          className={`flex-1 py-3 px-4 text-base font-semibold rounded-md transition-colors ${activeTab === 'my-requests'
+            ? 'bg-white text-blue-600 shadow-lg'
             : 'text-gray-500 hover:text-gray-700'
             }`}
         >
@@ -503,7 +510,7 @@ const ServicesMarketplace = () => {
         <div className="space-y-8">
           {/* Header */}
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Professional Services Marketplace</h1>
+            <h1 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">Professional Services Marketplace</h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Get your startup essentials handled by experts. From legal setup to technology development,
               we've got everything you need to launch and scale your business.
@@ -511,8 +518,8 @@ const ServicesMarketplace = () => {
           </div>
 
           {/* Search and Filter */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -699,7 +706,7 @@ const ServicesMarketplace = () => {
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 };
 

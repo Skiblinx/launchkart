@@ -6,14 +6,12 @@ import os
 import shutil
 from backend.models.user import User, UserProfile
 from backend.db import db, get_current_user
-from passlib.context import CryptContext
 import uuid
 from jose import jwt
 
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-here')
 JWT_ALGORITHM = "HS256"
 

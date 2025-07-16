@@ -12,9 +12,8 @@ import uuid
 from datetime import datetime, timedelta
 import requests
 from enum import Enum
-import bcrypt
-import jwt
 from passlib.context import CryptContext
+import jwt
 import base64
 from backend.kyc_system import initialize_kyc_system, kyc_health_check
 from backend.business_essentials import BusinessEssentialsGenerator
@@ -33,6 +32,9 @@ from backend.routers.analytics import router as analytics_router
 from backend.routers.auth import router as auth_router
 from backend.routers.admin_management import router as admin_management_router
 from backend.routers.email_verification import router as email_verification_router
+from backend.routers.admin_kyc import router as admin_kyc_router
+from backend.routers.admin_mentorship import router as admin_mentorship_router
+from backend.routers.admin_investment import router as admin_investment_router
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -53,8 +55,7 @@ except Exception as e:
 
 db = client[os.environ.get('DB_NAME', 'launchkart')]
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing - using bcrypt directly
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-here')
 JWT_ALGORITHM = "HS256"
 
@@ -221,11 +222,23 @@ class PaymentRecord(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 # Utility functions
+# Password context for hashing - using argon2 for better compatibility
+pwd_context = CryptContext(
+    schemes=["argon2", "bcrypt"],
+    deprecated="auto",
+    argon2__default_rounds=4,
+)
+
 def hash_password(password: str) -> str:
+    """Hash password using passlib"""
     return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify password using passlib"""
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except:
+        return False
 
 def create_jwt_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -574,6 +587,9 @@ app.include_router(analytics_router)
 app.include_router(auth_router)
 app.include_router(admin_management_router)
 app.include_router(email_verification_router)
+app.include_router(admin_kyc_router)
+app.include_router(admin_mentorship_router)
+app.include_router(admin_investment_router)
 
 # Configure logging
 logging.basicConfig(

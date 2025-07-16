@@ -74,14 +74,16 @@ class EmailService:
                     token_match = re.search(r'token=([^"&]+)', html_body)
                     if token_match:
                         token = token_match.group(1)
-                        logger.info(f"🔗 Verification URL: http://localhost:3000/verify-email?token={token}")
+                        logger.info(f"🔗 Verification URL: https://delicate-rabanadas-9a8271.netlify.app/verify-email?token={token}")
+                        # logger.info(f"🔗 Verification URL: http://localhost:3000/verify-email?token={token}")
                 return True
             
             return False
     
     def send_email_verification(self, to_email: str, full_name: str, verification_token: str) -> bool:
         """Send email verification link"""
-        verification_url = f"http://localhost:3000/verify-email?token={verification_token}"
+        # verification_url = f"http://localhost:3000/verify-email?token={verification_token}"
+        verification_url = f"https://delicate-rabanadas-9a8271.netlify.app/verify-email?token={verification_token}"
         
         subject = "🔐 Verify Your LaunchKart Account"
         
@@ -305,7 +307,7 @@ class EmailService:
                     </ul>
                     
                     <div style="text-align: center;">
-                        <a href="http://localhost:3000/admin/dashboard" class="button">Access Admin Portal</a>
+                        <a href="https://delicate-rabanadas-9a8271.netlify.app/admin/dashboard" class="button">Access Admin Portal</a>
                     </div>
                     
                     <p><strong>Next Steps:</strong></p>
@@ -334,7 +336,7 @@ class EmailService:
         
         {promoted_by} has promoted you to {role} on the LaunchKart admin team.
         
-        Access the admin portal: http://localhost:3000/admin/dashboard
+        Access the admin portal: https://delicate-rabanadas-9a8271.netlify.app/admin/dashboard
         
         Use your existing email for OTP authentication.
         
@@ -346,7 +348,7 @@ class EmailService:
     
     def send_password_reset(self, to_email: str, full_name: str, reset_token: str) -> bool:
         """Send password reset link"""
-        reset_url = f"http://localhost:3000/reset-password?token={reset_token}"
+        reset_url = f"https://delicate-rabanadas-9a8271.netlify.app/reset-password?token={reset_token}"
         
         subject = "🔑 Reset Your LaunchKart Password"
         

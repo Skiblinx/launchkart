@@ -1,21 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation, Link } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
 import KYCFlow from './components/KYCFlow';
+import Sidebar from './components/Sidebar';
 import { UserProvider, useUser } from './context/UserContext';
 import ServicesMarketplace from './components/ServicesMarketplace';
 import MentorshipSystem from './components/MentorshipSystem';
 import InvestmentSyndicate from './components/InvestmentSyndicate';
+import AdminDashboard from './components/AdminDashboard';
+import EmailVerification from './components/EmailVerification';
 
 // const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 // const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://your-app.onrender.com/api';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://launchkart.onrender.com';
 const API = `${BACKEND_URL}/api`;
 
 // Utility for authenticated requests (always include token from sessionStorage)
 export const apiRequest = (method, url, data, config = {}) => {
-  const token = sessionStorage.getItem('token');
+  // Check for both user token and admin token
+  const userToken = sessionStorage.getItem('token');
+  const adminToken = sessionStorage.getItem('admin_token');
+
+  // Use admin token for admin routes, otherwise use user token
+  const token = url.includes('/admin/') ? adminToken : userToken;
+
   const headers = {
     ...(config.headers || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -43,15 +52,15 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-white shadow-lg border-b sticky top-0 z-50">
+    <header className="bg-gradient-to-r from-blue-500 via-pink-400 to-purple-600 shadow-xl border-b sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center space-x-2">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">LK</span>
+                <span className="text-white font-bold text-lg drop-shadow">LK</span>
               </div>
-              <span className="text-2xl font-bold text-gray-800">LaunchKart</span>
+              <span className="text-2xl font-extrabold text-pink-500 drop-shadow">LaunchKart</span>
             </Link>
             {user && (
               <nav className="hidden md:flex space-x-6">
@@ -62,7 +71,7 @@ const Header = () => {
                   <Link to="/investment" className="text-gray-600 hover:text-blue-600">Investment</Link>
                 )}
                 {user.role === 'admin' && (
-                  <Link to="/admin" className="text-gray-600 hover:text-blue-600">Admin</Link>
+                  <Link to="/admin/dashboard" className="text-gray-600 hover:text-blue-600">Admin</Link>
                 )}
               </nav>
             )}
@@ -90,8 +99,8 @@ const Header = () => {
             </div>
           ) : (
             <div className="flex space-x-4">
-              <Link to="/login" className="text-gray-600 hover:text-blue-600">Login</Link>
-              <Link to="/signup" className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+              <Link to="/login" className="text-pink-500 hover:text-purple-600 font-semibold">Login</Link>
+              <Link to="/signup" className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-full shadow hover:from-pink-600 hover:to-purple-700 font-bold">
                 Sign Up
               </Link>
             </div>
@@ -168,11 +177,24 @@ const SignupPage = () => {
     setLoading(true);
     try {
       const response = await apiRequest('post', '/auth/signup', formData);
-      setUser(response.data.user);
-      sessionStorage.setItem('user', JSON.stringify(response.data.user));
-      sessionStorage.setItem('token', response.data.token); // store as plain string
-      setToast({ message: 'Account created successfully!', type: 'success' });
-      setTimeout(() => navigate('/kyc'), 1500);
+
+      // Store email for potential resend verification
+      window.lastVerificationEmail = formData.email;
+
+      if (response.data.email_verification_required) {
+        setToast({
+          message: 'Account created! Please check your email to verify your account before signing in.',
+          type: 'success'
+        });
+        setTimeout(() => navigate('/login?message=verification-sent'), 2000);
+      } else {
+        // Fallback for existing flow
+        setUser(response.data.user);
+        sessionStorage.setItem('user', JSON.stringify(response.data.user));
+        sessionStorage.setItem('token', response.data.token);
+        setToast({ message: 'Account created successfully!', type: 'success' });
+        setTimeout(() => navigate('/kyc'), 1500);
+      }
     } catch (error) {
       setToast({
         message: error.response?.data?.detail || 'Signup failed',
@@ -190,7 +212,7 @@ const SignupPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-purple-100 py-8">
       {toast && (
         <Toast
           message={toast.message}
@@ -200,10 +222,10 @@ const SignupPage = () => {
       )}
 
       <div className="container mx-auto px-4">
-        <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
+        <div className="max-w-md mx-auto bg-gradient-to-br from-white via-pink-50 to-purple-50 rounded-xl shadow-2xl p-8 border border-pink-100">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Join LaunchKart</h1>
-            <p className="text-gray-600">Start your entrepreneurial journey</p>
+            <h1 className="text-3xl font-extrabold text-purple-600 mb-2 drop-shadow">Join LaunchKart</h1>
+            <p className="text-pink-500">Start your entrepreneurial journey</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -434,8 +456,29 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [canResendVerification, setCanResendVerification] = useState(false);
   const { setUser } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check for URL messages
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const message = urlParams.get('message');
+    const verified = urlParams.get('verified');
+
+    if (message === 'verification-sent') {
+      setToast({
+        message: 'Verification email sent! Please check your inbox and verify your email before signing in.',
+        type: 'success'
+      });
+    } else if (verified === 'true') {
+      setToast({
+        message: 'Email verified successfully! You can now sign in.',
+        type: 'success'
+      });
+    }
+  }, [location]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -462,10 +505,21 @@ const LoginPage = () => {
       setToast({ message: 'Login successful!', type: 'success' });
       setTimeout(() => navigate('/dashboard'), 1500);
     } catch (error) {
-      setToast({
-        message: error.response?.data?.detail || 'Login failed',
-        type: 'error'
-      });
+      const errorMessage = error.response?.data?.detail || 'Login failed';
+
+      // Check if it's an email verification error
+      if (error.response?.status === 403 && errorMessage.includes('Email not verified')) {
+        setCanResendVerification(true);
+        setToast({
+          message: 'Please verify your email before signing in. Check your inbox for the verification link.',
+          type: 'error'
+        });
+      } else {
+        setToast({
+          message: errorMessage,
+          type: 'error'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -484,13 +538,35 @@ const LoginPage = () => {
       return;
     }
 
-    // Placeholder for forgot password functionality
-    setToast({ message: 'Password reset link sent to your email (demo)', type: 'success' });
-    setShowForgotPassword(false);
+    try {
+      await apiRequest('post', '/email/request-password-reset', { email: formData.email });
+      setToast({ message: 'Password reset link sent to your email', type: 'success' });
+      setShowForgotPassword(false);
+    } catch (error) {
+      setToast({ message: 'Failed to send password reset email', type: 'error' });
+    }
+  };
+
+  const resendVerificationEmail = async () => {
+    if (!formData.email) {
+      setToast({ message: 'Please enter your email first', type: 'error' });
+      return;
+    }
+
+    try {
+      await apiRequest('post', '/email/resend-verification', { email: formData.email });
+      setToast({ message: 'Verification email sent! Please check your inbox.', type: 'success' });
+      setCanResendVerification(false);
+    } catch (error) {
+      setToast({
+        message: error.response?.data?.detail || 'Failed to resend verification email',
+        type: 'error'
+      });
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-purple-100 py-8">
       {toast && (
         <Toast
           message={toast.message}
@@ -500,10 +576,10 @@ const LoginPage = () => {
       )}
 
       <div className="container mx-auto px-4">
-        <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
+        <div className="max-w-md mx-auto bg-gradient-to-br from-white via-blue-50 to-purple-50 rounded-xl shadow-2xl p-8 border border-blue-100">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Sign in to your LaunchKart account</p>
+            <h1 className="text-3xl font-extrabold text-blue-600 mb-2 drop-shadow">Welcome Back</h1>
+            <p className="text-purple-500">Sign in to your LaunchKart account</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -552,6 +628,21 @@ const LoginPage = () => {
                 Forgot password?
               </button>
             </div>
+
+            {canResendVerification && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-800 mb-2">
+                  Email not verified?
+                </p>
+                <button
+                  type="button"
+                  onClick={resendVerificationEmail}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Resend verification email
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"
@@ -667,31 +758,31 @@ const LandingPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-purple-100">
       <div className="container mx-auto px-6 py-20">
         <div className="max-w-6xl mx-auto">
           {/* Hero Section */}
           <div className="text-center mb-20">
             <div className="flex justify-center items-center space-x-3 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-2xl">LK</span>
+              <div className="w-16 h-16 bg-gradient-to-r from-pink-500 via-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-extrabold text-2xl drop-shadow">LK</span>
               </div>
-              <h1 className="text-5xl font-bold text-gray-900">LaunchKart</h1>
+              <h1 className="text-5xl font-extrabold text-pink-500 drop-shadow">LaunchKart</h1>
             </div>
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            <p className="text-xl text-purple-500 mb-8 max-w-3xl mx-auto">
               Empowering early-stage entrepreneurs in India & UAE with business essentials,
               expert mentorship, and investment opportunities. Your startup journey starts here.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={handleGetStarted}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300"
+                className="bg-gradient-to-r from-pink-500 via-blue-500 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-bold shadow hover:from-pink-600 hover:to-purple-700 transition-all duration-300"
               >
                 Get Started Now
               </button>
               <button
                 onClick={() => navigate('/login')}
-                className="bg-white text-gray-700 border border-gray-300 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-all duration-300"
+                className="bg-white text-pink-500 border border-pink-300 px-8 py-4 rounded-full text-lg font-bold hover:bg-pink-50 transition-all duration-300"
               >
                 Sign In
               </button>
@@ -700,7 +791,7 @@ const LandingPage = () => {
 
           {/* Features Grid */}
           <div className="grid md:grid-cols-3 gap-8 mb-20">
-            <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+            <div className="bg-gradient-to-br from-white via-pink-50 to-purple-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-shadow border border-pink-100">
               <img
                 src="https://images.unsplash.com/photo-1513530534585-c7b1394c6d51"
                 alt="Business Essentials"
@@ -712,7 +803,7 @@ const LandingPage = () => {
               </p>
             </div>
 
-            <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+            <div className="bg-gradient-to-br from-white via-blue-50 to-purple-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-shadow border border-blue-100">
               <img
                 src="https://images.unsplash.com/photo-1573496130103-a442a3754d0e"
                 alt="Mentorship"
@@ -724,7 +815,7 @@ const LandingPage = () => {
               </p>
             </div>
 
-            <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+            <div className="bg-gradient-to-br from-white via-purple-50 to-pink-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition-shadow border border-purple-100">
               <img
                 src="https://images.unsplash.com/photo-1588856122867-363b0aa7f598"
                 alt="Investment"
@@ -738,37 +829,37 @@ const LandingPage = () => {
           </div>
 
           {/* Stats Section */}
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-20">
+          <div className="bg-gradient-to-br from-white via-pink-50 to-purple-50 rounded-xl shadow-lg p-8 mb-20 border border-pink-100">
             <h2 className="text-3xl font-bold text-center mb-12">Trusted by Entrepreneurs</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600 mb-2">500+</div>
+                <div className="text-3xl font-bold text-pink-500 mb-2">500+</div>
                 <div className="text-gray-600">Startups Launched</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-green-600 mb-2">₹50M+</div>
+                <div className="text-3xl font-bold text-purple-600 mb-2">₹50M+</div>
                 <div className="text-gray-600">Funding Raised</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-2">100+</div>
+                <div className="text-3xl font-bold text-blue-600 mb-2">100+</div>
                 <div className="text-gray-600">Expert Mentors</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-orange-600 mb-2">2</div>
+                <div className="text-3xl font-bold text-pink-500 mb-2">2</div>
                 <div className="text-gray-600">Countries</div>
               </div>
             </div>
           </div>
 
           {/* CTA Section */}
-          <div className="text-center bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl p-12">
+          <div className="text-center bg-gradient-to-r from-pink-500 via-blue-500 to-purple-600 text-white rounded-xl p-12 shadow-lg">
             <h2 className="text-3xl font-bold mb-4">Ready to Launch Your Startup?</h2>
             <p className="text-xl mb-8 opacity-90">
               Join thousands of entrepreneurs who are building the future with LaunchKart
             </p>
             <button
               onClick={handleGetStarted}
-              className="bg-white text-blue-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all duration-300"
+              className="bg-white text-pink-500 px-8 py-4 rounded-full text-lg font-bold shadow hover:bg-pink-50 transition-all duration-300"
             >
               Start Your Journey Today
             </button>
@@ -811,6 +902,8 @@ const Dashboard = () => {
   const { user } = useUser();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showEssentialsBanner, setShowEssentialsBanner] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardData();
@@ -830,7 +923,33 @@ const Dashboard = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto bg-gradient-to-br from-white via-pink-50 to-purple-50 rounded-xl shadow-lg p-4 sm:p-8">
+      {showEssentialsBanner && (
+        <div className="flex items-center justify-between bg-gradient-to-r from-pink-500 via-blue-500 to-purple-600 text-white rounded-xl px-6 py-4 mb-6 shadow-lg">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🎁</span>
+            <span className="font-semibold">Get your <span className="underline">Free Business Essentials</span> now!</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                setShowEssentialsBanner(false);
+                navigate('/services?tab=business-essentials');
+              }}
+              className="bg-white text-pink-500 font-bold px-4 py-2 rounded-full shadow hover:bg-pink-50 transition-all duration-300"
+            >
+              Claim Now
+            </button>
+            <button
+              onClick={() => setShowEssentialsBanner(false)}
+              className="text-white hover:text-gray-200 text-xl px-2"
+              aria-label="Close banner"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Welcome back, {user.fullName || user.name}!
@@ -949,11 +1068,14 @@ const ProtectedRoute = ({ children }) => {
   if (!user) return <Navigate to="/login" />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <main className="container mx-auto px-4 py-8">
-        {children}
-      </main>
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-purple-100 flex">
+      <Sidebar />
+      <div className="flex-1 ml-0 md:ml-64">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 };
@@ -971,6 +1093,7 @@ const App = () => {
           <Route path="/" element={<><Header /><LandingPage /></>} />
           <Route path="/login" element={<><Header /><LoginPage /></>} />
           <Route path="/signup" element={<><Header /><SignupPage /></>} />
+          <Route path="/verify-email" element={<EmailVerification />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/dashboard" element={
             <ProtectedRoute>
@@ -997,14 +1120,7 @@ const App = () => {
               <InvestmentSyndicate />
             </ProtectedRoute>
           } />
-          <Route path="/admin" element={
-            <ProtectedRoute>
-              <div className="text-center py-20">
-                <h1 className="text-3xl font-bold mb-4">Admin Panel</h1>
-                <p className="text-gray-600">Admin dashboard coming soon...</p>
-              </div>
-            </ProtectedRoute>
-          } />
+          <Route path="/admin/*" element={<AdminDashboard />} />
         </Routes>
       </Router>
     </UserProvider>

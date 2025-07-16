@@ -823,7 +823,7 @@ const KYCFlow = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <section className="min-h-screen bg-gray-50 py-8">
       {toast && (
         <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
           } text-white`}>
@@ -838,12 +838,15 @@ const KYCFlow = () => {
 
       <div className="container mx-auto px-4">
         <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">KYC Verification</h1>
-            <p className="text-gray-600">
-              Complete your identity verification to unlock all LaunchKart features
-            </p>
+          <div className="flex items-center gap-4 mb-10 justify-center">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <span className="text-white text-2xl">🔒</span>
+            </div>
+            <h1 className="text-3xl font-extrabold text-gray-900 mb-2 tracking-tight">KYC Verification</h1>
           </div>
+          <p className="text-gray-600 text-center mb-8">
+            Complete your identity verification to unlock all LaunchKart features
+          </p>
 
           {kycStatus && renderProgressBar()}
           {renderCurrentStep()}
@@ -864,7 +867,7 @@ const KYCFlow = () => {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

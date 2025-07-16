@@ -11,7 +11,7 @@ from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from backend.db import get_database
-from backend.models.admin import AdminUser, AdminPermission
+from backend.models.admin import Admin, AdminUser, AdminPermission
 from typing import Optional
 
 # Configure logging
@@ -62,8 +62,8 @@ def verify_admin_token(token: str):
 
 def require_admin_permission(required_permission: AdminPermission):
     """Dependency to check if admin has required permission"""
-    async def permission_checker(current_admin: dict = Depends(get_current_admin_enhanced)):
-        if required_permission not in current_admin.get("permissions", []):
+    async def permission_checker(current_admin: Admin = Depends(get_current_admin_enhanced)):
+        if required_permission not in current_admin.permissions:
             raise HTTPException(
                 status_code=403, 
                 detail=f"Permission denied: {required_permission} required"
@@ -97,17 +97,21 @@ async def get_current_admin_enhanced(credentials = Depends(security)):
             }
         )
         
-        return {
-            "email": admin["email"],
-            "role": admin["role"],
-            "permissions": admin["permissions"],
-            "fullName": admin["full_name"],
-            "picture": user.get("picture") if user else None,
-            "user_id": user.get("id") if user else None
-        }
+        # Return Admin model instance
+        return Admin(
+            id=admin.get("id", admin.get("_id")),
+            email=admin["email"],
+            role=admin["role"],
+            permissions=admin["permissions"],
+            fullName=admin["full_name"],
+            picture=user.get("picture") if user else None
+        )
         
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid authentication")
+
+# Alias for compatibility
+get_current_admin = get_current_admin_enhanced
 
 async def send_otp_email(email: str, otp: str, full_name: str):
     """Send OTP email to admin"""

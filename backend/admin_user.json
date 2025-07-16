@@ -1,0 +1,19 @@
+{
+  "id": "bfdf50fe-c0f1-4a65-aee9-239a28fd3616",
+  "email": "iconmikky112@gmail.com",
+  "full_name": "IconMikky Admin",
+  "role": "super_admin",
+  "permissions": [
+    "user_management",
+    "kyc_verification",
+    "service_approval", 
+    "admin_management",
+    "analytics_access",
+    "system_configuration"
+  ],
+  "is_active": true,
+  "created_by": "system",
+  "created_at": "2025-07-15T07:26:24.114Z",
+  "last_login": null,
+  "login_count": 0
+}

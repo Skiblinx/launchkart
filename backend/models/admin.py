@@ -50,6 +50,15 @@ class AdminUser(BaseModel):
     demoted_by: Optional[str] = None
     demoted_at: Optional[datetime] = None
 
+class Admin(BaseModel):
+    """Simplified admin model for API responses"""
+    id: str
+    email: str
+    fullName: str
+    role: str
+    permissions: List[str]
+    picture: Optional[str] = None
+
 class AdminOTPRequest(BaseModel):
     email: EmailStr
 

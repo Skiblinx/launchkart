@@ -278,24 +278,24 @@ const InvestmentSyndicate = () => {
     };
 
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8">
-            <h2 className="text-3xl font-bold mb-2">Investment Application</h2>
-            <p className="text-blue-100">
-              Submit your startup for review by our investment syndicate.
+      <div className="max-w-5xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-10">
+            <h2 className="text-4xl font-extrabold mb-2 tracking-tight">Investment Application</h2>
+            <p className="text-blue-100 text-lg">
+              Submit your startup for review by our investment syndicate.<br />
               Please provide detailed information about your company and growth plans.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 space-y-10">
+          <form onSubmit={handleSubmit} className="p-10 space-y-12">
             {/* Company Information */}
-            <div className="space-y-6">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Building className="w-5 h-5 text-blue-600" />
+            <div className="space-y-8">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Building className="w-6 h-6 text-blue-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900">Company Information</h3>
+                <h3 className="text-2xl font-bold text-gray-900">Company Information</h3>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
