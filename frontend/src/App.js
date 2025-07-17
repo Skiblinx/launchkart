@@ -5,11 +5,13 @@ import './App.css';
 import KYCFlow from './components/KYCFlow';
 import Sidebar from './components/Sidebar';
 import { UserProvider, useUser } from './context/UserContext';
+import { TourProvider, useTour } from './components/tour';
 import ServicesMarketplace from './components/ServicesMarketplace';
 import MentorshipSystem from './components/MentorshipSystem';
 import InvestmentSyndicate from './components/InvestmentSyndicate';
 import AdminDashboard from './components/AdminDashboard';
 import EmailVerification from './components/EmailVerification';
+import PaymentHistory from './components/PaymentHistory';
 
 // const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 // const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
@@ -79,7 +81,7 @@ const Header = () => {
 
           {user ? (
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2" data-tour="user-profile">
                 <img
                   src={user.picture || 'https://via.placeholder.com/40'}
                   alt={user.fullName || user.name}
@@ -900,6 +902,7 @@ const ProfilePage = () => {
 
 const Dashboard = () => {
   const { user } = useUser();
+  const { startTour, checkAutoStart } = useTour();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showEssentialsBanner, setShowEssentialsBanner] = useState(true);
@@ -908,6 +911,12 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (user && user.role) {
+      checkAutoStart(user.role);
+    }
+  }, [user, checkAutoStart]);
 
   const fetchDashboardData = async () => {
     try {
@@ -950,21 +959,34 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Welcome back, {user.fullName || user.name}!
-        </h1>
-        <p className="text-gray-600">
-          {user.role === 'founder' && 'Ready to build your startup empire?'}
-          {user.role === 'mentor' && 'Ready to guide the next generation of entrepreneurs?'}
-          {user.role === 'investor' && 'Ready to discover promising investment opportunities?'}
-          {user.role === 'admin' && 'Ready to manage the platform?'}
-        </p>
+      <div className="mb-8" data-tour="welcome-section">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome back, {user.fullName || user.name}!
+            </h1>
+            <p className="text-gray-600">
+              {user.role === 'founder' && 'Ready to build your startup empire?'}
+              {user.role === 'mentor' && 'Ready to guide the next generation of entrepreneurs?'}
+              {user.role === 'investor' && 'Ready to discover promising investment opportunities?'}
+              {user.role === 'admin' && 'Ready to manage the platform?'}
+            </p>
+          </div>
+          <button
+            onClick={() => startTour(user.role)}
+            className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Take Tour</span>
+          </button>
+        </div>
       </div>
 
       {/* KYC Status Banner */}
       {user.kyc_level === 'none' && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6" data-tour="kyc-banner">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -984,7 +1006,7 @@ const Dashboard = () => {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" data-tour="stats-cards">
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <h3 className="text-lg font-semibold mb-2">Service Requests</h3>
           <p className="text-3xl font-bold text-blue-600">
@@ -1004,9 +1026,9 @@ const Dashboard = () => {
           </p>
         </div>
         <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h3 className="text-lg font-semibold mb-2">Completed</h3>
+          <h3 className="text-lg font-semibold mb-2">Total Spent</h3>
           <p className="text-3xl font-bold text-orange-600">
-            {dashboardData?.stats?.completed_services || 0}
+            ₹{dashboardData?.stats?.total_spent?.toLocaleString() || 0}
           </p>
         </div>
       </div>
@@ -1015,23 +1037,23 @@ const Dashboard = () => {
       <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link to="/services" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left block">
+          <Link to="/services" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left block" data-tour="quick-action-service">
             <h3 className="font-semibold mb-2">Request Service</h3>
             <p className="text-sm text-gray-600">Get professional help</p>
           </Link>
-          <Link to="/mentors" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left block">
+          <Link to="/mentors" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left block" data-tour="quick-action-mentor">
             <h3 className="font-semibold mb-2">Find Mentor</h3>
             <p className="text-sm text-gray-600">Connect with experts</p>
           </Link>
           {user.role === 'founder' && (
-            <Link to="/investment" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left block">
+            <Link to="/investment" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left block" data-tour="quick-action-funding">
               <h3 className="font-semibold mb-2">Apply for Funding</h3>
               <p className="text-sm text-gray-600">Get investment</p>
             </Link>
           )}
-          <Link to="/analytics" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left block">
-            <h3 className="font-semibold mb-2">View Analytics</h3>
-            <p className="text-sm text-gray-600">Track your progress</p>
+          <Link to="/payments" className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left block">
+            <h3 className="font-semibold mb-2">Payment History</h3>
+            <p className="text-sm text-gray-600">View transactions</p>
           </Link>
         </div>
       </div>
@@ -1088,41 +1110,48 @@ const App = () => {
 
   return (
     <UserProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<><Header /><LandingPage /></>} />
-          <Route path="/login" element={<><Header /><LoginPage /></>} />
-          <Route path="/signup" element={<><Header /><SignupPage /></>} />
-          <Route path="/verify-email" element={<EmailVerification />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/kyc" element={
-            <ProtectedRoute>
-              <KYCFlow />
-            </ProtectedRoute>
-          } />
-          <Route path="/services" element={
-            <ProtectedRoute>
-              <ServicesMarketplace />
-            </ProtectedRoute>
-          } />
-          <Route path="/mentors" element={
-            <ProtectedRoute>
-              <MentorshipSystem />
-            </ProtectedRoute>
-          } />
-          <Route path="/investment" element={
-            <ProtectedRoute>
-              <InvestmentSyndicate />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/*" element={<AdminDashboard />} />
-        </Routes>
-      </Router>
+      <TourProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<><Header /><LandingPage /></>} />
+            <Route path="/login" element={<><Header /><LoginPage /></>} />
+            <Route path="/signup" element={<><Header /><SignupPage /></>} />
+            <Route path="/verify-email" element={<EmailVerification />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/kyc" element={
+              <ProtectedRoute>
+                <KYCFlow />
+              </ProtectedRoute>
+            } />
+            <Route path="/services" element={
+              <ProtectedRoute>
+                <ServicesMarketplace />
+              </ProtectedRoute>
+            } />
+            <Route path="/mentors" element={
+              <ProtectedRoute>
+                <MentorshipSystem />
+              </ProtectedRoute>
+            } />
+            <Route path="/investment" element={
+              <ProtectedRoute>
+                <InvestmentSyndicate />
+              </ProtectedRoute>
+            } />
+            <Route path="/payments" element={
+              <ProtectedRoute>
+                <PaymentHistory />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/*" element={<AdminDashboard />} />
+          </Routes>
+        </Router>
+      </TourProvider>
     </UserProvider>
   );
 };

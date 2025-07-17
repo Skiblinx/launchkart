@@ -426,6 +426,64 @@ class EmailService:
         
         return self._send_email(to_email, subject, html_body, text_body)
 
+    def send_payment_confirmation(self, user: dict, service_request: dict, payment_record: dict):
+        """Build and send payment confirmation email"""
+        subject = f"Payment Confirmation - {service_request['title']}"
+
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Payment Confirmation</h2>
+            <p>Dear {user.get('name', 'User')},</p>
+            <p>Your payment has been successfully processed!</p>
+            
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">Payment Details</h3>
+                <p><strong>Service:</strong> {service_request['title']}</p>
+                <p><strong>Amount:</strong> {payment_record['currency']} {payment_record['amount']:,.2f}</p>
+                <p><strong>Payment ID:</strong> {payment_record['gateway_payment_id']}</p>
+                <p><strong>Date:</strong> {payment_record['updated_at'].strftime('%Y-%m-%d %H:%M:%S')}</p>
+            </div>
+            
+            <p>Our team will now begin working on your service request. You'll receive regular updates on the progress.</p>
+            
+            <div style="margin-top: 30px; text-align: center;">
+                <a href="{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard" 
+                   style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                    View Dashboard
+                </a>
+            </div>
+            
+            <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
+                Thank you for choosing LaunchKart!<br>
+                If you have any questions, please contact our support team.
+            </p>
+        </div>
+        """
+
+        text_content = f"""
+        Payment Confirmation
+
+        Dear {user.get('name', 'User')},
+
+        Your payment has been successfully processed!
+
+        Payment Details:
+        - Service: {service_request['title']}
+        - Amount: {payment_record['currency']} {payment_record['amount']:,.2f}
+        - Payment ID: {payment_record['gateway_payment_id']}
+        - Date: {payment_record['updated_at'].strftime('%Y-%m-%d %H:%M:%S')}
+
+        Our team will now begin working on your service request. You'll receive regular updates on the progress.
+
+        Thank you for choosing LaunchKart!
+        """
+
+        self._send_email(
+            to_email=user["email"],
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content
+        )
 # Create global email service instance
 email_service = EmailService()
 

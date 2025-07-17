@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { apiRequest } from '../App';
 import BusinessEssentials from './BusinessEssentials';
+import PricingCalculator from './PricingCalculator';
+import CheckoutFlow from './CheckoutFlow';
 import {
   Building, Globe, Smartphone, FileText, TrendingUp, Award,
   Database, Upload, Download, Clock, CheckCircle, AlertCircle,
-  DollarSign, Calendar, MessageSquare, Star, Filter, Search
+  DollarSign, Calendar, MessageSquare, Star, Filter, Search, Calculator
 } from 'lucide-react';
 
 const ServicesMarketplace = () => {
@@ -16,6 +18,9 @@ const ServicesMarketplace = () => {
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState(null);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [showPricingCalculator, setShowPricingCalculator] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [calculatedPrice, setCalculatedPrice] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
 
@@ -191,21 +196,22 @@ const ServicesMarketplace = () => {
           </ul>
         </div>
 
-        <div className="flex space-x-3">
+        <div className="flex space-x-2">
           <button
             onClick={() => {
               setSelectedService(service);
-              setShowQuoteModal(true);
+              setShowPricingCalculator(true);
             }}
-            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center"
           >
-            Request Quote
+            <Calculator className="w-4 h-4 mr-1" />
+            Get Quote
           </button>
           <button
             onClick={() => setSelectedService(service)}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+            className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
           >
-            View Details
+            Details
           </button>
         </div>
       </div>
@@ -231,7 +237,7 @@ const ServicesMarketplace = () => {
         formData.append('service_type', selectedService.id);
         formData.append('title', `${selectedService.title} - Quote Request`);
         formData.append('description', quoteForm.requirements);
-        formData.append('budget', parseFloat(quoteForm.budget) || selectedService.price);
+        formData.append('budget', parseFloat(quoteForm.budget) || calculatedPrice?.calculated_price || selectedService.price);
         formData.append('timeline', quoteForm.timeline);
         formData.append('additional_notes', quoteForm.additionalNotes);
 
@@ -444,8 +450,25 @@ const ServicesMarketplace = () => {
                     View Details
                   </button>
                   {request.status === 'quoted' && (
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
-                      Accept Quote
+                    <button 
+                      onClick={() => {
+                        setSelectedService({ id: request.service_type, title: request.title });
+                        setShowCheckout(true);
+                      }}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
+                    >
+                      Pay Now
+                    </button>
+                  )}
+                  {request.status === 'payment_pending' && (
+                    <button 
+                      onClick={() => {
+                        setSelectedService({ id: request.service_type, title: request.title });
+                        setShowCheckout(true);
+                      }}
+                      className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 text-sm font-medium animate-pulse"
+                    >
+                      Complete Payment
                     </button>
                   )}
                 </div>
@@ -598,8 +621,38 @@ const ServicesMarketplace = () => {
 
       {activeTab === 'my-requests' && <ServiceRequestsTab />}
 
-      {/* Quote Request Modal */}
+      {/* Modals */}
       {showQuoteModal && <QuoteRequestModal />}
+      
+      {showPricingCalculator && (
+        <PricingCalculator
+          service={selectedService}
+          onPriceCalculated={(priceData) => {
+            setCalculatedPrice(priceData);
+            setShowPricingCalculator(false);
+            setShowQuoteModal(true);
+          }}
+          onClose={() => setShowPricingCalculator(false)}
+        />
+      )}
+      
+      {showCheckout && (
+        <CheckoutFlow
+          serviceRequest={serviceRequests.find(req => req.service_type === selectedService?.id) || selectedService}
+          calculatedPrice={calculatedPrice}
+          onSuccess={(paymentData) => {
+            setShowCheckout(false);
+            setSelectedService(null);
+            setCalculatedPrice(null);
+            fetchServiceRequests(); // Refresh to show updated status
+            alert('Payment successful! Our team will start working on your project.');
+          }}
+          onCancel={() => {
+            setShowCheckout(false);
+            setSelectedService(null);
+          }}
+        />
+      )}
 
       {/* Service Details Modal */}
       {selectedService && !showQuoteModal && (
@@ -657,12 +710,23 @@ const ServicesMarketplace = () => {
                     <p className="text-sm text-gray-500 mt-1">{selectedService.duration}</p>
                   </div>
 
-                  <button
-                    onClick={() => setShowQuoteModal(true)}
-                    className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 font-medium mb-4"
-                  >
-                    Request Custom Quote
-                  </button>
+                  <div className="space-y-3 mb-4">
+                    <button
+                      onClick={() => {
+                        setShowPricingCalculator(true);
+                      }}
+                      className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center"
+                    >
+                      <Calculator className="w-4 h-4 mr-2" />
+                      Calculate Price
+                    </button>
+                    <button
+                      onClick={() => setShowQuoteModal(true)}
+                      className="w-full bg-gray-600 text-white py-2 px-6 rounded-lg hover:bg-gray-700 font-medium text-sm"
+                    >
+                      Request Custom Quote
+                    </button>
+                  </div>
 
                   <div className="space-y-3 text-sm text-gray-600">
                     <div className="flex items-center">
