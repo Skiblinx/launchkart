@@ -9,6 +9,10 @@ export const UserProvider = ({ children }) => {
     return stored ? JSON.parse(stored) : null;
   });
   const [token, setToken] = useState(() => sessionStorage.getItem('token'));
+  const [tourCompleted, setTourCompleted] = useState(() => {
+    const stored = sessionStorage.getItem('tourCompleted');
+    return stored ? JSON.parse(stored) : false;
+  });
 
   // Guarantee axios header is set on mount and when token changes
   useEffect(() => {
@@ -38,6 +42,10 @@ export const UserProvider = ({ children }) => {
     }
   }, [user]);
 
+  useEffect(() => {
+    sessionStorage.setItem('tourCompleted', JSON.stringify(tourCompleted));
+  }, [tourCompleted]);
+
   const login = (newToken, userData) => {
     setToken(newToken);
     setUser(userData);
@@ -49,13 +57,15 @@ export const UserProvider = ({ children }) => {
   const logout = () => {
     setToken(null);
     setUser(null);
+    setTourCompleted(false);
     sessionStorage.removeItem('user');
     sessionStorage.removeItem('token');
+    sessionStorage.removeItem('tourCompleted');
     delete axios.defaults.headers.common['Authorization'];
   };
 
   return (
-    <UserContext.Provider value={{ user, setUser, token, login, logout }}>
+    <UserContext.Provider value={{ user, setUser, token, login, logout, tourCompleted, setTourCompleted }}>
       {children}
     </UserContext.Provider>
   );

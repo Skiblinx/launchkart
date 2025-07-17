@@ -19,7 +19,7 @@ const Sidebar = () => {
       <div className="flex items-center h-20 px-6 border-b">
         <span className="text-2xl font-bold text-blue-600">LaunchKart</span>
       </div>
-      <nav className="flex-1 py-6 px-4 space-y-2">
+      <nav className="flex-1 py-6 px-4 space-y-2" data-tour="sidebar-nav">
         {navItems.map(
           (item) =>
             (!item.role || user?.role === item.role) && (

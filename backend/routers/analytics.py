@@ -25,11 +25,13 @@ async def get_analytics_dashboard(current_user=Depends(get_current_user)):
         ]
     }).to_list(1000)
     investment_apps = await db.pitch_submissions.find({"user_id": current_user.id}).to_list(1000)
+    payment_records = await db.payment_records.find({"user_id": current_user.id}).to_list(1000)
     
     # Fix ObjectIds for JSON serialization
     service_requests = fix_mongo_ids(service_requests)
     mentorship_sessions = fix_mongo_ids(mentorship_sessions)
     investment_apps = fix_mongo_ids(investment_apps)
+    payment_records = fix_mongo_ids(payment_records)
     
     analytics = {
         "services": {
@@ -37,7 +39,7 @@ async def get_analytics_dashboard(current_user=Depends(get_current_user)):
             "pending": len([r for r in service_requests if r.get("status") == "pending"]),
             "in_progress": len([r for r in service_requests if r.get("status") == "in_progress"]),
             "completed": len([r for r in service_requests if r.get("status") == "completed"]),
-            "total_spent": sum(r.get("budget", 0) for r in service_requests if r.get("status") == "completed")
+            "total_spent": sum(p.get("amount", 0) for p in payment_records if p.get("status") == "completed")
         },
         "mentorship": {
             "total_sessions": len(mentorship_sessions),

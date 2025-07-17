@@ -40,3 +40,6 @@ pyotp>=2.9.0
 python-magic>=0.4.27
 # Admin utilities for better CLI output
 rich>=13.7.0
+# Payment gateway integrations
+razorpay>=1.3.0
+stripe>=5.8.0
